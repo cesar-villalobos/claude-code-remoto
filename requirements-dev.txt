@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8.0
+playwright>=1.45   # después: python -m playwright install chromium
+pillow>=10        # genera imágenes para las pruebas de capturas

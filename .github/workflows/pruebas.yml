@@ -1,0 +1,53 @@
+name: Pruebas
+
+# - push: verifica lo ya integrado en main y develop.
+# - pull_request: verifica cada cambio antes de fusionarlo (incluye PRs desde forks;
+#   usa pull_request, no pull_request_target, y no hay secretos: el código ajeno corre
+#   sin permisos de escritura).
+# - workflow_dispatch: correrlas a mano en cualquier rama (pestaña Actions).
+# Así cada cambio en una rama feature/ se prueba una sola vez, en su PR.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Instalar Chromium para Playwright
+        run: python -m playwright install --with-deps chromium
+
+      - name: Pruebas unitarias, API, HTTPS y sintaxis
+        run: pytest -m "not browser" -v
+
+      - name: Pruebas en navegador
+        run: pytest -m browser -v
+
+      - name: Guardar registros si algo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registros-pruebas
+          path: /tmp/pytest-of-*/**/server.log
+          if-no-files-found: ignore

@@ -1,0 +1,1508 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#141413">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Claude Remoto</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<style>
+  :root{--bg:#141413;--panel:#1f1e1d;--line:#2e2d2b;--text:#ecebe6;--muted:#9b9a94;--accent:#d97757;
+        --ok:#3fa66b;--bad:#d9534f;--user:#2b3a55;--r:14px}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f5f1;--panel:#fff;--line:#e3e1da;--text:#1f1e1d;--muted:#6b6a65;--user:#dbe6f7}}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  body{display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:8px;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));
+         border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2}
+  header h1{font-size:16px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #dot{width:12px;height:12px;border-radius:50%;background:var(--muted);flex:none;cursor:pointer;
+       outline:8px solid transparent}  /* área de toque más grande */
+  #dot.idle{background:var(--ok)} #dot.busy{background:var(--accent);animation:pulse 1s infinite} #dot.off{background:var(--bad)}
+  @keyframes pulse{50%{opacity:.35}}
+  .icon{background:none;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:6px 10px;font-size:14px}
+  #menu{display:none;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+  #menu.open{display:flex}
+  #menu button{flex:1 1 30%}
+  #cwdbar{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 12px;border-bottom:1px solid var(--line)}
+  #cwd{flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #modeBtn{flex:none;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+  #modeBtn.acceptEdits{border-color:var(--accent);color:var(--accent)}
+  #modeBtn.plan{border-color:#5b8def;color:#5b8def}
+  .mode-opt{display:block;width:100%;text-align:left;margin:6px 0;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px}
+  .mode-opt small{display:block;color:var(--muted);margin-top:2px}
+  .mode-opt.on{outline:2px solid var(--accent)}
+  .rules h4{margin:14px 0 6px;font-size:14px}
+  .rule{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .rule .what{flex:1;min-width:0}
+  .rule .what code{word-break:break-all}
+  .rule .what small{display:block;color:var(--muted)}
+  .rule button{flex:none;background:none;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 10px}
+  .rule-form{display:grid;gap:8px;margin-top:10px}
+  .rule-form select,.rule-form input{width:100%;min-width:0;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:15px}
+  .rule-form .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+  .rule-form button{padding:10px;border-radius:10px;border:0;background:var(--accent);color:#fff;font-weight:600;font-size:15px}
+  .sess{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .sess .who{flex:1;min-width:0}
+  .sess .who small{display:block;color:var(--muted)}
+  .sess .me{color:var(--ok);font-size:12px;font-weight:600}
+  .sess button,.sec-actions button{background:none;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 10px;font-size:14px}
+  .sec-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .sec-actions button.danger{border-color:var(--bad);color:var(--bad)}
+  .newtoken{word-break:break-all;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:8px;font:13px ui-monospace,Menlo,monospace}
+.totp-qr{display:block;width:190px;height:190px;margin:8px auto;background:#fff;border-radius:8px;padding:6px}
+.totp-form{display:flex;gap:8px;margin-top:8px}.totp-form button{background:var(--accent,#d97757);border:0;color:#fff;font-weight:600;padding:8px 14px;border-radius:10px}.totp-form input{flex:1;min-width:0;font-size:20px;letter-spacing:4px;text-align:center}
+.steps{padding-left:20px;margin:8px 0}
+  .audit-row{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;overflow-wrap:anywhere}
+  .audit-row small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+  .audit-row code{font-size:12px}
+  .plan-body{max-height:22em;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:8px 0;background:var(--bg)}
+  main{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+  main[hidden]{display:none}   /* chats de las otras pestañas */
+  .msg{max-width:92%;padding:10px 12px;border-radius:var(--r);background:var(--panel);border:1px solid var(--line);overflow-wrap:anywhere}
+  .msg.streaming::after{content:"▍";color:var(--accent);margin-left:2px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){.msg.streaming::after{animation:none}}
+  .user{align-self:flex-end;background:var(--user);border-color:transparent;white-space:pre-wrap}
+  .tool,.info,.done{align-self:center;font-size:13px;color:var(--muted);text-align:center;max-width:100%}
+  .tool{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  .error{border-color:var(--bad);color:var(--bad)}
+  pre{background:rgba(127,127,127,.12);padding:8px;border-radius:8px;overflow-x:auto;font-size:13px;margin:6px 0;white-space:pre}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.15);padding:1px 4px;border-radius:4px}
+  pre code{background:none;padding:0}
+  .card{border:1px solid var(--accent);background:var(--panel);border-radius:var(--r);padding:12px;max-width:100%}
+  .card h3{margin:0 0 6px;font-size:15px}
+  .card .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .card button{flex:1 1 auto;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px;padding:8px 12px}
+  .card button.yes{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:600}
+  .card button.no{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
+  .card button.sel{outline:2px solid var(--accent)}
+  .card .opt{display:block;width:100%;text-align:left}
+  .card .opt small{display:block;color:var(--muted)}
+  .card.closed{border-color:var(--line);opacity:.8}
+  /* ---- diff ---- */
+  .diff{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:8px 0;background:var(--bg)}
+  .diff-head{padding:6px 10px;font-size:13px;border-bottom:1px solid var(--line);color:var(--muted)}
+  .diff-head .plus{color:var(--ok);font-weight:700}.diff-head .minus{color:var(--bad);font-weight:700}
+  .diff-body{overflow-x:auto;font:12px/1.55 ui-monospace,Menlo,monospace}
+  .diff-body.folded{max-height:26em;overflow-y:hidden;-webkit-mask-image:linear-gradient(#000 80%,transparent);mask-image:linear-gradient(#000 80%,transparent)}
+  .dl{display:flex;white-space:pre;min-width:max-content}
+  .dl .ln{flex:none;width:2.8em;text-align:right;padding-right:6px;color:var(--muted);opacity:.7;user-select:none}
+  .diff.nonum .dl .ln{display:none}
+  .dl .code{padding:0 12px 0 4px}
+  .dl .sg{display:inline-block;width:1.1em;user-select:none;opacity:.8}
+  .dl.add{background:rgba(63,166,107,.17)}.dl.add .sg{color:var(--ok)}
+  .dl.del{background:rgba(217,83,79,.17)}.dl.del .sg{color:var(--bad)}
+  .dl.hunk{background:rgba(127,127,127,.12);color:var(--muted)}
+  .card button.diff-more{display:block;width:100%;min-height:36px;border:0;border-top:1px solid var(--line);border-radius:0;background:none;color:var(--accent);font-size:14px}
+  .card .comment{flex:1 1 100%;display:flex;flex-direction:column;gap:8px}
+  .card .comment textarea{width:100%;min-height:72px;resize:vertical;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+  .card .comment .actions{margin-top:0}
+  .card button.link{background:none;border:0;color:var(--accent);min-height:36px;padding:4px 0;text-align:left;flex:none}
+  .card .result{margin-top:8px;font-weight:600}
+  /* ---- alertas ---- */
+  #alertBar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(217,119,87,.15);border-bottom:1px solid var(--accent);font-size:14px}
+  #alertBar[hidden]{display:none}
+  #alertBar span{flex:1}
+  #alertBar button{border:0;border-radius:8px;padding:8px 12px;font-size:14px}
+  #alertOn{background:var(--accent);color:#fff;font-weight:600}
+  #alertLater{background:none;color:var(--muted)}
+  .opt-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .opt-row small{display:block;color:var(--muted)}
+  .opt-row input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+  .opt-row select{flex:none;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:14px}
+  .note{font-size:13px;color:var(--muted);margin:8px 0}
+  .note.warn{color:var(--accent)}
+  .note a{color:var(--accent)}
+  /* ---- indicador "trabajando" ---- */
+  #working{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line);background:var(--panel);cursor:default}
+  #working[hidden]{display:none}
+  #wkGlyph{color:var(--accent);font-size:20px;width:22px;text-align:center;line-height:1;flex:none;
+           display:inline-block;transition:transform .12s ease-out}
+  #working.waiting #wkGlyph{animation:breathe 1.6s ease-in-out infinite}
+  #wkBody{flex:1;min-width:0;display:flex;flex-direction:column}
+  #wkLine{display:flex;gap:8px;align-items:baseline;white-space:nowrap}
+  #wkVerb{font-weight:600;font-size:15px;
+          background:linear-gradient(90deg,var(--accent) 0%,var(--accent) 35%,#f6d2c1 50%,var(--accent) 65%,var(--accent) 100%);
+          background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+          animation:shimmer 2.2s linear infinite}
+  #working.waiting #wkVerb{animation:none;color:var(--accent);background:none}
+  #wkMeta{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  #wkAct{color:var(--muted);font:12px ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #wkAct:empty{display:none}
+  #working.waiting{cursor:pointer}
+  @keyframes shimmer{from{background-position:100% 0}to{background-position:-150% 0}}
+  @keyframes breathe{50%{transform:scale(1.25);opacity:.6}}
+  @media (prefers-reduced-motion:reduce){#wkVerb{animation:none;color:var(--accent);background:none}#working.waiting #wkGlyph{animation:none}}
+  footer{display:flex;gap:8px;padding:8px 12px;padding-bottom:max(8px,env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--panel)}
+  textarea{flex:1;resize:none;max-height:40vh;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+  #send{min-width:56px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:18px}
+  #send:disabled{opacity:.4}
+  #attachBtn{min-width:40px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);font-size:18px;padding:0}
+  #attachBar{display:flex;gap:8px;overflow-x:auto;padding:8px 12px 2px;background:var(--panel);border-top:1px solid var(--line)}
+  #attachBar[hidden]{display:none}
+  #attachBar .att{position:relative;flex:none}
+  #attachBar .att img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
+  #attachBar .att button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--bad);color:#fff;font-size:12px;line-height:22px;padding:0}
+  #attachBar .count{align-self:center;color:var(--muted);font-size:12px;white-space:nowrap}
+  .msg .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .msg .thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.35)}
+  .msg .thumbs .nothumb{font-size:28px}
+  #tabs{display:flex;gap:6px;overflow-x:auto;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);scrollbar-width:none}
+  #tabs::-webkit-scrollbar{display:none}
+  #tabs .tab{flex:none;display:flex;align-items:center;gap:6px;max-width:44vw;padding:6px 12px;border-radius:16px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px}
+  #tabs .tab.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent);font-weight:600}
+  #tabs .tab .tname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tabs .tab.add{font-weight:700;padding:6px 10px}
+  #tabs .tmark{flex:none;font-size:11px}
+  #tabs .tmark.busy{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite}
+  #tabs .tmark.wait{color:var(--accent)}
+  #tabs .tmark.new{color:var(--accent);font-size:16px;line-height:8px}
+  @media (prefers-reduced-motion:reduce){#tabs .tmark.busy{animation:none}}
+  body.dropping #log{outline:3px dashed var(--accent);outline-offset:-8px}
+  #mic{min-width:48px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);font-size:20px}
+  #mic[hidden]{display:none}
+  #ttsBtn[hidden]{display:none}
+  #tpls{display:flex;gap:6px;overflow-x:auto;padding:6px 12px 2px;background:var(--panel);border-top:1px solid var(--line);scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #tpls::-webkit-scrollbar{display:none}
+  #tpls[hidden]{display:none}
+  #cmdList{max-height:min(40vh,320px);overflow-y:auto;background:var(--panel);border-top:1px solid var(--line);padding:4px 0;overscroll-behavior:contain}
+  #cmdList[hidden]{display:none}
+  a.jira{color:var(--accent);text-decoration:none;border-bottom:1px dotted currentColor;white-space:nowrap}
+  a.jira::before{content:"🎫 ";font-size:.85em}
+  #cmdList .cmd{display:block;width:100%;text-align:left;padding:7px 12px;border:0;background:none;color:var(--text);font:inherit;cursor:pointer}
+  #cmdList .cmd.sel{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  #cmdList .cmd b{font-family:ui-monospace,Menlo,monospace;font-weight:600}
+  #cmdList .cmd .hint{color:var(--muted);font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  #cmdList .cmd small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #cmdList .cmd-note{padding:8px 12px;color:var(--muted);font-size:13px}
+  #tpls button{flex:none;white-space:nowrap;border:1px solid var(--line);border-radius:16px;padding:6px 12px;background:var(--bg);color:var(--text);font-size:13px}
+  #tpls button.direct::after{content:" ➤";color:var(--accent)}
+  .tpl-item{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+  .tpl-item .who{flex:1;min-width:0}.tpl-item small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tpl-item .tag{display:block;font-size:11px;color:var(--accent)}
+  .tpl-item button{flex:none;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+  .tpl-form{display:grid;gap:8px;margin:8px 0}.tpl-form input,.tpl-form textarea{width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+  .tpl-form textarea{min-height:90px;resize:vertical}
+  #ttsBtn.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent)}
+  #ttsBtn.talking{animation:pulse 1.2s infinite}
+  @media (prefers-reduced-motion:reduce){#ttsBtn.talking{animation:none}}
+  .tts-row{display:flex;align-items:center;gap:8px;margin:8px 0}.tts-row label{flex:1}
+  .tts-row select,.tts-row input[type=range]{flex:1;min-width:0;max-width:60%}
+  #mic.rec{background:var(--bad);border-color:var(--bad);color:#fff;animation:pulse 1.2s infinite}
+  #mic.busy{opacity:.6}
+  @media (prefers-reduced-motion:reduce){#mic.rec{animation:none}}
+  dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);color:var(--text);width:min(520px,94vw);padding:0 12px;overflow-x:hidden;max-height:88vh;overflow-y:auto;box-sizing:border-box;overscroll-behavior:contain}
+  /* iPhone: vh incluye la zona bajo la barra de Safari; dvh es la altura visible real */
+  @supports (height:100dvh){dialog{max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
+  .dlg-x{position:sticky;top:0;float:right;z-index:2;margin:6px -6px 0 8px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:16px;line-height:1;cursor:pointer}
+  #dlgBody{padding-top:12px}
+  .dlg-close{position:sticky;bottom:0;z-index:2;margin:0 -12px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}
+  .dlg-close button{display:block;width:100%;margin:0}
+  dialog::backdrop{background:rgba(0,0,0,.5)}
+  dialog .row{display:block;width:100%;text-align:left;margin:6px 0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:14px}
+  dialog .row small{display:block;color:var(--muted)}
+  #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#444;color:#fff;padding:8px 14px;border-radius:10px;display:none;z-index:9}
+</style>
+</head>
+<body>
+<header>
+  <span id="dot" class="off" title="estado"></span>
+  <h1>Claude Remoto</h1>
+  <button class="icon" id="ttsBtn" title="Respuestas habladas: apagadas" aria-pressed="false" hidden>🔇</button>
+  <button class="icon" id="stopBtn" title="Detener">⏹</button>
+  <button class="icon" id="menuBtn" title="Menú">☰</button>
+</header>
+<nav id="menu">
+  <button class="icon" data-cmd="new">🆕 Conversación nueva</button>
+  <button class="icon" data-cmd="sessions">🧵 Retomar conversación</button>
+  <button class="icon" data-cmd="cd">📁 Carpeta</button>
+  <button class="icon" data-cmd="status">ℹ️ Estado</button>
+  <button class="icon" data-cmd="alerts">🔔 Alertas</button>
+  <button class="icon" data-cmd="voice">🎤 Voz</button>
+  <button class="icon" data-cmd="templates">⚡ Plantillas</button>
+  <button class="icon" data-cmd="jira">🎫 Jira</button>
+  <button class="icon" data-cmd="rules">⚖️ Reglas</button>
+  <button class="icon" data-cmd="security">🔐 Seguridad</button>
+  <button class="icon" data-cmd="logout">🚪 Salir</button>
+</nav>
+<nav id="tabs" aria-label="Sesiones en paralelo"></nav>
+<div id="cwdbar"><span id="cwd"></span><button id="modeBtn" title="Modo de permisos"></button></div>
+<div id="alertBar" hidden>
+  <span>🔔 Activa las alertas para enterarte cuando Claude necesite tu decisión.</span>
+  <button id="alertOn">Activar</button><button id="alertLater" title="Ahora no">✕</button>
+</div>
+<main id="log"></main>
+<div id="working" hidden aria-live="polite">
+  <span id="wkGlyph" aria-hidden="true">✻</span>
+  <div id="wkBody">
+    <div id="wkLine"><span id="wkVerb">Pensando…</span><span id="wkMeta"></span></div>
+    <div id="wkAct"></div>
+  </div>
+</div>
+<div id="cmdList" role="listbox" aria-label="Comandos de Claude" hidden></div>
+<div id="attachBar" hidden aria-label="Capturas adjuntas"></div>
+<div id="tpls" hidden aria-label="Plantillas"></div>
+<footer>
+  <button id="attachBtn" title="Adjuntar captura o foto" aria-label="Adjuntar captura o foto">📎</button>
+  <input type="file" id="fileIn" accept="image/*" multiple hidden>
+  <textarea id="input" rows="1" placeholder="Escribe una tarea…" enterkeyhint="send"></textarea>
+  <button id="mic" title="Dictar por voz" aria-label="Dictar por voz" hidden>🎤</button>
+  <button id="send" title="Enviar">➤</button>
+</footer>
+<dialog id="dlg"><button class="dlg-x" id="dlgX" aria-label="Cerrar">✕</button><div id="dlgBody"></div>
+  <div class="dlg-close"><button class="row" id="dlgClose" style="text-align:center">Cerrar</button></div></dialog>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let log = $('#log');   // chat de la pestaña abierta (cambia al cambiar de pestaña)
+const input = $('#input'), dlg = $('#dlg');
+let decided = {}, status = {}, es = null, unseen = 0;
+
+// ---------- utilidades ----------
+function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function md(src){  // Markdown mínimo y seguro (escapa primero)
+  const blocks=[];
+  let s=esc(src).replace(/```[\w+-]*\n?([\s\S]*?)```/g,(m,c)=>{blocks.push(c);return '\u0000'+(blocks.length-1)+'\u0000'});
+  s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>')
+     .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')
+     .replace(/^#{1,6} (.*)$/gm,'<b>$1</b>')
+     .replace(/^[-*] (.*)$/gm,'• $1')
+     .replace(/\n/g,'<br>');
+  return s.replace(/\u0000(\d+)\u0000/g,(m,i)=>'<pre><code>'+blocks[i]+'</code></pre>');
+}
+function toast(t){const el=$('#toast');el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',3500)}
+function nearBottom(){return log.scrollHeight-log.scrollTop-log.clientHeight<120}
+function add(el,force){const stick=force||nearBottom();linkify(el);log.appendChild(el);if(stick)log.scrollTop=log.scrollHeight}
+
+// ---------- enlaces a Jira: ABC-123 → https://tu-jira/browse/ABC-123 ----------
+const JIRA_RE=/\b([A-Z][A-Z0-9]{1,9})-(\d{1,7})\b/g;
+function jiraOk(project){const j=status.jira||{};if(!j.url)return false;
+  return j.projects&&j.projects.length?j.projects.includes(project):!(j.exclude||[]).includes(project)}
+function jiraLink(key){const a=document.createElement('a');a.className='jira';a.textContent=key;
+  a.href=status.jira.url+'/browse/'+encodeURIComponent(key);a.target='_blank';a.rel='noopener noreferrer';
+  a.title='Abrir '+key+' en Jira';return a}
+function linkify(root){   // recorre solo nodos de texto: no interpreta HTML del mensaje
+  if(!root||!(status.jira&&status.jira.url))return;
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(n){
+    const p=n.parentElement;
+    if(!p||p.closest('a,pre,button,textarea,input,.diff'))return NodeFilter.FILTER_REJECT;
+    if(p.closest('code')){   // en `código` solo si es exactamente una clave
+      const t=n.nodeValue.trim(),m=/^([A-Z][A-Z0-9]{1,9})-\d{1,7}$/.exec(t);
+      return m&&jiraOk(m[1])?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}
+    JIRA_RE.lastIndex=0;return JIRA_RE.test(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});
+  const nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+  for(const n of nodes){
+    const text=n.nodeValue,frag=document.createDocumentFragment();let last=0,m,changed=false;
+    JIRA_RE.lastIndex=0;
+    while((m=JIRA_RE.exec(text))){
+      if(!jiraOk(m[1]))continue;
+      frag.append(text.slice(last,m.index),jiraLink(m[0]));last=m.index+m[0].length;changed=true}
+    if(changed){frag.append(text.slice(last));n.replaceWith(frag)}
+  }
+}
+function div(cls,html){const d=document.createElement('div');d.className=cls;d.innerHTML=html;return d}
+async function api(path,body){
+  try{
+    const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CR':'1'},body:JSON.stringify({...(activeTab?{tab:activeTab}:{}),...(body||{})})});
+    if(r.status===401){location.reload();return {}}
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok&&j.error)toast(j.error);
+    return j;
+  }catch(e){toast('Sin conexión con el equipo');return {}}
+}
+function notify(){if(document.hidden){unseen++;document.title=`(${unseen}) Claude Remoto`;navigator.vibrate?.(200)}}
+
+// ---------- render ----------
+// ---------- indicador "trabajando" ----------
+const FRAMES=['·','✢','✳','✶','✻','✽','✻','✶','✳','✢'];
+const VERBS=['Pensando','Analizando','Trabajando','Revisando','Razonando','Explorando',
+             'Tramando','Cocinando','Hilando','Puliendo','Maquinando','Ensamblando'];
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let wkTimer=null, wkTick=0, clockSkew=0;
+const openCards=new Set();   // decisiones esperando respuesta (de todas las sesiones)
+
+// ---------- sesiones en paralelo (pestañas) ----------
+// Cada sesión tiene su propio <main>; solo se ve el de la pestaña abierta, que lleva id="log".
+let activeTab=''; try{activeTab=localStorage.getItem('cr_tab')||''}catch(_){}
+let tabsInfo=[];   // estado de cada sesión, tal como lo envía el servidor
+const logs={}, activity={}, lastText={}, unread={}, cardTab={};
+const tabName=id=>(tabsInfo.find(t=>t.id===id)||{}).name||'';
+const multiTab=()=>tabsInfo.length>1;
+function logFor(tab){
+  if(!tab)return log;
+  if(!logs[tab]){
+    const first=$('#log'), free=first&&!Object.values(logs).includes(first);
+    const m=free?first:document.createElement('main');
+    if(!free){m.hidden=true;$('#working').before(m)}
+    logs[tab]=m;
+  }
+  return logs[tab];
+}
+function inLog(m,fn){const prev=log;log=m||prev;try{return fn()}finally{log=prev}}
+function ensureHint(m){
+  if(m.children.length)return;
+  const h=div('info hint','Escribe una tarea. Las decisiones aparecerán aquí con botones.');m.appendChild(h);
+}
+function showTab(tab,{scroll=true}={}){
+  if(!tab)return;
+  activeTab=tab; try{localStorage.setItem('cr_tab',tab)}catch(_){}
+  const m=logFor(tab);
+  for(const [k,el] of Object.entries(logs)){el.hidden=k!==tab;if(el.id==='log'&&el!==m)el.removeAttribute('id');el.querySelector('.hint')?.removeAttribute('id')}
+  m.id='log'; log=m; unread[tab]=0;
+  ensureHint(m); m.querySelector('.hint')?.setAttribute('id','hint');
+  setStatus({});
+  if(scroll)log.scrollTop=log.scrollHeight;
+}
+function applyTabStatus(){
+  if(Array.isArray(status.tabs))tabsInfo=status.tabs;
+  if(!tabsInfo.length)return;
+  for(const k of Object.keys(logs))if(!tabsInfo.some(t=>t.id===k)){logs[k].remove();delete logs[k]}   // sesión cerrada
+  if(!tabsInfo.some(t=>t.id===activeTab)){activeTab=tabsInfo[0].id;showTab(activeTab);return}
+  tabsInfo.forEach(t=>logFor(t.id));
+  const t=tabsInfo.find(x=>x.id===activeTab);
+  Object.assign(status,{busy:t.busy,cwd:t.cwd,session:t.session,mode:t.mode,pending:t.pending,since:t.since,always:t.always,name:t.name,tab:t.id});
+  const m=logs[activeTab]; if(m&&m.id!=='log'){showTab(activeTab,{scroll:false});return}
+  paintTabs();
+}
+function paintTabs(){
+  const nav=$('#tabs'); nav.innerHTML='';
+  tabsInfo.forEach(t=>{
+    const b=document.createElement('button'); b.className='tab'+(t.id===activeTab?' on':''); b.dataset.tab=t.id;
+    const waiting=[...openCards].some(r=>cardTab[r]===t.id);
+    const mark=waiting?'<span class="tmark wait" title="Esperando tu decisión">◆</span>'
+      :t.busy?'<span class="tmark busy" title="Trabajando"></span>'
+      :unread[t.id]?'<span class="tmark new" title="Novedades">•</span>':'';
+    b.innerHTML=mark+`<span class="tname">${esc(t.name)}</span>`;
+    b.title=`${t.name} · ${t.cwd}`+(t.id===activeTab?' · toca para renombrar o cerrar':'');
+    b.onclick=()=>t.id===activeTab?tabMenu(t):showTab(t.id);
+    nav.appendChild(b);
+  });
+  const add=document.createElement('button'); add.className='tab add'; add.textContent='＋'; add.dataset.tabAdd='1';
+  add.title='Nueva sesión en paralelo'; add.disabled=tabsInfo.length>=(status.max_tabs||6); add.onclick=newTabDialog;
+  nav.appendChild(add);
+}
+function newTabDialog(){
+  showDialog(`<h3>🗂️ Nueva sesión en paralelo</h3>
+    <p class="note">Cada sesión tiene su propio Claude Code, carpeta, modo e historial. Puedes tener hasta ${status.max_tabs||6} a la vez; cada una mantiene un proceso de Claude Code abierto.</p>
+    <form class="tpl-form" id="tabForm">
+      <label for="tabName">Nombre</label><input id="tabName" maxlength="30" placeholder="p. ej. Backend, ABC-123…">
+      <label for="tabCwd">Carpeta</label><input id="tabCwd" value="${esc(status.cwd||'')}">
+      <p class="note warn" id="tabErr"></p>
+      <div class="sec-actions"><button type="submit">Crear</button></div>
+    </form>`);
+  $('#tabName').focus();
+  $('#tabForm').onsubmit=async e=>{e.preventDefault();
+    const r=await api('/api/cmd',{cmd:'tab_new',name:$('#tabName').value,cwd:$('#tabCwd').value});
+    if(r.ok){dlg.close();setStatus(r.status);showTab(r.tab)}else $('#tabErr').textContent=r.error||'Error'};
+}
+function tabMenu(t){
+  showDialog(`<h3>🗂️ ${esc(t.name)}</h3>
+    <p class="note">📁 ${esc(t.cwd)} · ${esc((MODES[t.mode]||MODES.default).label)}${t.busy?' · ⏳ trabajando':''}</p>
+    <form class="tpl-form" id="tabRename"><label for="tabNewName">Nombre</label>
+      <input id="tabNewName" maxlength="30" value="${esc(t.name)}"><p class="note warn" id="tabErr"></p>
+      <div class="sec-actions"><button type="submit">Renombrar</button>${tabsInfo.length>1?'<button type="button" class="danger" id="tabClose">Cerrar sesión</button>':''}</div>
+    </form>`);
+  $('#tabRename').onsubmit=async e=>{e.preventDefault();
+    const r=await api('/api/cmd',{cmd:'tab_rename',tab:t.id,name:$('#tabNewName').value});
+    if(r.ok){dlg.close();setStatus(r.status)}else $('#tabErr').textContent=r.error||'Error'};
+  const c=$('#tabClose'); if(c)c.onclick=async()=>{
+    if(!confirm(`¿Cerrar «${t.name}»?${t.busy?' Se detendrá la tarea en curso.':''} Su historial se borra.`))return;
+    const r=await api('/api/cmd',{cmd:'tab_close',tab:t.id}); if(r.ok){dlg.close();setStatus(r.status)}};
+}
+
+function fmtElapsed(s){return s<60?`${s}s`:`${Math.floor(s/60)}m ${String(s%60).padStart(2,'0')}s`}
+function paintWorking(){
+  const mine=[...openCards].filter(r=>cardTab[r]===activeTab), waiting=mine.length>0;
+  $('#working').classList.toggle('waiting',waiting);
+  $('#wkGlyph').textContent=waiting?'◆':(reducedMotion?'✻':FRAMES[wkTick%FRAMES.length]);
+  const secs=status.since?Math.max(0,Math.floor(Date.now()/1000+clockSkew-status.since)):0;
+  // El verbo depende de la hora de inicio y del tiempo transcurrido: todos los dispositivos ven el mismo
+  const verb=VERBS[(Math.floor(status.since||0)+Math.floor(secs/3))%VERBS.length];
+  $('#wkVerb').textContent=waiting
+    ?(mine.length>1?`Esperando ${mine.length} decisiones…`:'Esperando tu decisión…')
+    :verb+'…';
+  $('#wkMeta').textContent=fmtElapsed(secs)+(waiting?' · toca para verla':'');
+  $('#wkAct').textContent=waiting?'':(activity[activeTab]||'');
+}
+function updateWorking(){
+  const w=$('#working');
+  if(!status.busy){w.hidden=true;clearInterval(wkTimer);wkTimer=null;return}
+  w.hidden=false;
+  if(!wkTimer)wkTimer=setInterval(()=>{wkTick++;paintWorking()},120);   // símbolo cada 120 ms, verbo cada 3 s
+  paintWorking();
+}
+$('#working').onclick=()=>{   // si espera una decisión, lleva a la tarjeta
+  const id=[...openCards].filter(r=>cardTab[r]===activeTab).pop(); const c=id&&document.getElementById('d-'+id);
+  if(c){c.scrollIntoView({behavior:'smooth',block:'center'});c.animate([{outlineColor:'transparent'},{outline:'2px solid var(--accent)'},{outlineColor:'transparent'}],{duration:900})}
+};
+
+const MODES={
+  default:{label:'🛡️ Preguntar',desc:'Pide tu aprobación para todo lo que no está pre-aprobado.'},
+  acceptEdits:{label:'✏️ Aceptar ediciones',desc:'Aprueba solo las ediciones de archivos. Comandos, Jira y lo demás siguen preguntando.'},
+  plan:{label:'📋 Solo planificar',desc:'Claude investiga y propone un plan sin modificar nada. Tú lo apruebas antes de ejecutar.'},
+};
+function paintMode(){
+  const m=MODES[status.mode]?status.mode:'default';
+  const b=$('#modeBtn'); b.textContent=MODES[m].label; b.className=m;
+}
+function modeDialog(){
+  showDialog('<h3>Modo de permisos</h3><p class="note">Se aplica de inmediato, incluso con una tarea en curso, y en todos tus dispositivos.</p>');
+  Object.entries(MODES).forEach(([k,v])=>{
+    const r=document.createElement('button');r.className='mode-opt'+(status.mode===k?' on':'');
+    r.innerHTML=`${v.label}<small>${esc(v.desc)}</small>`;
+    r.onclick=async()=>{dlg.close();if(k!==status.mode){const j=await api('/api/cmd',{cmd:'mode',arg:k});if(j.status)setStatus(j.status)}};
+    $('#dlgBody').appendChild(r);
+  });
+}
+function setStatus(s){
+  status={...status,...s};
+  applyTabStatus();
+  paintMode();
+  if(typeof s.now==='number')clockSkew=s.now-Date.now()/1000;
+  paintDot(); updateWorking(); syncWakeLock();
+  $('#send').disabled=!!status.busy;
+  paintMic();
+  if(status.tpl&&status.tpl!==tplVersion){tplVersion=status.tpl;loadTemplates()}   // cambiaron en algún dispositivo
+  const jk=JSON.stringify(status.jira||null); if(jk!==jiraKey){jiraKey=jk;for(const m of Object.values(logs).concat(Object.keys(logs).length?[]:[log])){m.querySelectorAll('a.jira').forEach(x=>x.replaceWith(x.textContent));m.normalize();linkify(m)}}   // dirección de Jira nueva
+  $('#cwd').textContent='📁 '+(status.cwd||'')+(status.session?'  ·  🧵 '+status.session.slice(0,8):'  ·  sesión nueva');
+}
+function where(ev){return ev.tab&&ev.tab!==activeTab&&multiTab()?' en '+tabName(ev.tab):''}
+function closeCard(ref,label){
+  const c=document.getElementById('d-'+ref); if(!c)return;
+  c.classList.add('closed'); c.querySelector('.actions')?.remove();
+  if(!c.querySelector('.result'))c.appendChild(div('result',esc(label)));
+}
+// Botón que despliega un cuadro de texto dentro de la tarjeta (comentario o respuesta libre)
+const MAX_COMMENT=2000;
+function commentToggle(actions,label,{placeholder,submit,cls,send}){
+  const wrap=document.createElement('div');wrap.className='comment';
+  const open=document.createElement('button');open.className='link';open.textContent=label;
+  wrap.appendChild(open);
+  open.onclick=()=>{
+    open.hidden=true;
+    const ta=document.createElement('textarea');ta.maxLength=MAX_COMMENT;ta.rows=3;ta.placeholder=placeholder;
+    const row=div('actions','');
+    const ok=document.createElement('button');ok.textContent=submit;ok.className=cls;
+    const cancel=document.createElement('button');cancel.textContent='Cancelar';
+    const go=async()=>{
+      const t=ta.value.trim(); if(!t){ta.focus();return toast('Escribe algo primero')}
+      actions.querySelectorAll('button,textarea').forEach(x=>x.disabled=true);
+      const j=await send(t);
+      if(!j.ok)actions.querySelectorAll('button,textarea').forEach(x=>x.disabled=false);
+    };
+    ok.onclick=go;
+    cancel.onclick=()=>{ta.remove();row.remove();open.hidden=false};
+    ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();go()}});
+    row.append(ok,cancel); wrap.append(ta,row); ta.focus();
+  };
+  return wrap;
+}
+// Diff estilo GitHub: líneas quitadas en rojo, agregadas en verde, con números de línea
+const DIFF_FOLD=30;   // sobre este número de líneas se muestra plegado
+function renderDiff(d){
+  const box=document.createElement('div');
+  box.className='diff'+(d.numbered?'':' nonum');
+  const notes=[d.new_file?'archivo nuevo':'', !d.numbered?'sin números de línea (no se pudo leer el archivo)':'', d.truncated?'recortado':''].filter(Boolean);
+  box.appendChild(div('diff-head',`<span class="plus">+${d.add}</span> <span class="minus">−${d.del}</span>`+
+    (notes.length?` <span class="note">· ${esc(notes.join(' · '))}</span>`:'')));
+  const body=document.createElement('div');body.className='diff-body';
+  body.innerHTML=d.lines.map(l=>{
+    if(l.t==='hunk')return `<div class="dl hunk"><span class="ln"></span><span class="ln"></span><span class="code">${d.numbered?`@@ línea ${l.n} @@`:'⋯'}</span></div>`;
+    const sign=l.t==='add'?'+':l.t==='del'?'−':' ';
+    return `<div class="dl ${l.t}"><span class="ln">${l.o??''}</span><span class="ln">${l.n??''}</span>`+
+           `<span class="code"><span class="sg">${sign}</span>${esc(l.s)}</span></div>`;
+  }).join('');
+  box.appendChild(body);
+  if(d.lines.length>DIFF_FOLD){
+    body.classList.add('folded');
+    const more=document.createElement('button');more.className='diff-more';
+    more.textContent=`Ver todo (${d.lines.length} líneas)`;
+    more.onclick=()=>{const f=body.classList.toggle('folded');more.textContent=f?`Ver todo (${d.lines.length} líneas)`:'Ver menos'};
+    box.appendChild(more);
+  }
+  return box;
+}
+function renderPlan(ev,live){
+  const c=div('card',`<h3>${esc(ev.title)}</h3><div class="plan-body">${md(ev.plan||'')}</div>`);
+  c.id='d-'+ev.ref;
+  if(!decided[ev.ref]){
+    const a=div('actions','');
+    [['y','✅ Aprobar plan','yes'],['e','✏️ Aprobar y aceptar ediciones',''],['n','❌ Rechazar','no']].forEach(([v,t,cl])=>{
+      const b=document.createElement('button');b.textContent=t;b.className=cl;
+      b.onclick=()=>{a.querySelectorAll('button').forEach(x=>x.disabled=true);api('/api/decide',{ref:ev.ref,choice:v}).then(j=>{if(!j.ok)a.querySelectorAll('button').forEach(x=>x.disabled=false)})};
+      a.appendChild(b)});
+    a.appendChild(commentToggle(a,'💬 Pedir cambios al plan',{
+      placeholder:'¿Qué cambiarías? Ej.: «primero agrega pruebas», «no toques la base de datos»',
+      submit:'Enviar cambios', cls:'no',
+      send:t=>api('/api/decide',{ref:ev.ref,choice:'n',comment:t}),
+    }));
+    c.appendChild(a);
+  }else c.classList.add('closed'), c.appendChild(div('result',esc(decided[ev.ref])));
+  add(c,live); if(live&&!decided[ev.ref]){notify();alertDecision(ev)}
+}
+function renderPerm(ev,live){
+  if(ev.tool==='ExitPlanMode')return renderPlan(ev,live);
+  const c=div('card',`<h3>🛂 ${esc(ev.title)}</h3>${!ev.diff&&ev.detail?`<pre>${esc(ev.detail)}</pre>`:''}`);
+  c.id='d-'+ev.ref;
+  if(ev.diff)c.appendChild(renderDiff(ev.diff));
+  if(!decided[ev.ref]){
+    const a=div('actions','');
+    [['y','✅ Aprobar','yes'],['n','❌ Rechazar','no'],['a','♾️ Siempre','']].forEach(([v,t,cl])=>{
+      const b=document.createElement('button');b.textContent=t;b.className=cl;
+      b.onclick=()=>{a.querySelectorAll('button').forEach(x=>x.disabled=true);api('/api/decide',{ref:ev.ref,choice:v}).then(j=>{if(!j.ok)a.querySelectorAll('button').forEach(x=>x.disabled=false)})};
+      a.appendChild(b)});
+    if(ev.suggest){const r=document.createElement('button');r.className='link';r.textContent='⚖️ Crear regla para casos así';
+      r.onclick=()=>rulesDialog(ev.suggest);a.appendChild(r)}
+    a.appendChild(commentToggle(a,'💬 Rechazar con comentario',{
+      placeholder:'¿Qué debería hacer distinto? Ej.: «no toques ese archivo, usa config.yaml»',
+      submit:'❌ Rechazar y enviar', cls:'no',
+      send:t=>api('/api/decide',{ref:ev.ref,choice:'n',comment:t}),
+    }));
+    c.appendChild(a);
+  }else c.classList.add('closed'), c.appendChild(div('result',esc(decided[ev.ref])));
+  add(c,live); if(live&&!decided[ev.ref]){notify();alertDecision(ev)}
+}
+function renderQuestion(ev,live){
+  const c=div('card',`<h3>❓ ${esc(ev.header)}</h3><div>${md(ev.question)}</div>`);
+  c.id='d-'+ev.ref;
+  if(!decided[ev.ref]){
+    const a=div('actions',''), sel=new Set();
+    ev.options.forEach((o,i)=>{
+      const b=document.createElement('button');b.className='opt';
+      b.innerHTML=esc(o.label)+(o.description?`<small>${esc(o.description)}</small>`:'');
+      b.onclick=()=>{
+        if(ev.multi){sel.has(i)?sel.delete(i):sel.add(i);b.classList.toggle('sel');return}
+        a.querySelectorAll('button').forEach(x=>x.disabled=true);api('/api/decide',{ref:ev.ref,answer:[i]});
+      };
+      a.appendChild(b)});
+    if(ev.multi){const d=document.createElement('button');d.textContent='✔️ Listo';d.className='yes';
+      d.onclick=()=>{if(!sel.size)return toast('Marca al menos una opción');api('/api/decide',{ref:ev.ref,answer:[...sel]})};a.appendChild(d)}
+    a.appendChild(commentToggle(a,'✏️ Otra respuesta',{
+      placeholder:'Escribe tu respuesta…', submit:'Enviar respuesta', cls:'yes',
+      send:t=>api('/api/decide',{ref:ev.ref,text:t}),
+    }));
+    c.appendChild(a);
+  }else c.classList.add('closed'), c.appendChild(div('result',esc(decided[ev.ref])));
+  add(c,live); if(live&&!decided[ev.ref]){notify();alertDecision(ev)}
+}
+// Burbuja que crece mientras Claude escribe (se reemplaza al llegar el texto definitivo)
+function renderStream(ev,live){
+  let el=document.getElementById('s-'+ev.sid);
+  const stick=nearBottom();
+  if(!el){el=div('msg streaming','');el.id='s-'+ev.sid;add(el,live)}
+  el.innerHTML=md(ev.text);
+  if(stick)log.scrollTop=log.scrollHeight;
+}
+function trackWorking(ev){
+  const t=ev.tab||activeTab;
+  switch(ev.type){
+    case 'user': case 'done': case 'error': activity[t]='';break;
+    case 'tool': activity[t]='› '+ev.text;break;
+    case 'stream': activity[t]='✍️ Escribiendo la respuesta…';break;
+    case 'assistant': activity[t]='';lastText[t]=ev.text||'';break;
+    case 'perm': case 'question': if(!decided[ev.ref]){openCards.add(ev.ref);cardTab[ev.ref]=t}break;
+    case 'decided': openCards.delete(ev.ref);break;
+  }
+  if(status.busy)paintWorking();
+}
+const OWN_STATE=['status','revoked','reset'];
+function render(ev,live){
+  if(OWN_STATE.includes(ev.type))return renderIn(ev,live);
+  if(!ev.tab){   // global (reglas, 2FA…): se muestra en todas las sesiones
+    const all=Object.values(logs);
+    if(!all.length)return renderIn(ev,live);
+    all.forEach(m=>inLog(m,()=>renderIn(ev,live&&m===logs[activeTab])));
+    return;
+  }
+  inLog(logFor(ev.tab),()=>renderIn(ev,live));
+  if(live&&ev.tab!==activeTab&&['assistant','perm','question','done','error'].includes(ev.type))unread[ev.tab]=(unread[ev.tab]||0)+1;
+  if(live)paintTabs();
+}
+function renderIn(ev,live){
+  log.querySelector('.hint')?.remove();
+  trackWorking(ev);
+  switch(ev.type){
+    case 'user':{
+      const th=(ev.images||[]).map(t=>t?`<img src="data:image/jpeg;base64,${esc(t)}" alt="Captura adjunta">`:'<span class="nothumb" title="Captura adjunta">🖼️</span>').join('');
+      add(div('msg user',(th?`<div class="thumbs">${th}</div>`:'')+esc(ev.text)),true);if(live&&ev.tab===activeTab)ttsStop();break;}
+    case 'stream': renderStream(ev,live);break;
+    case 'assistant':{
+      const partial=ev.replaces&&document.getElementById('s-'+ev.replaces);
+      if(partial){partial.classList.remove('streaming');partial.removeAttribute('id');partial.innerHTML=md(ev.text);linkify(partial)}
+      else add(div('msg',md(ev.text)),live);
+      if(live&&(!ev.tab||ev.tab===activeTab))ttsSay(ev.text);
+      break;}
+    case 'tool': add(div('tool','› '+esc(ev.text)),live);break;
+    case 'info': add(div('info',esc(ev.text)),live);break;
+    case 'error': add(div('msg error','💥 '+esc(ev.text)),live);if(live)alertDone(ev,false);break;
+    case 'done': add(div('done',(ev.ok?'✅ Listo':'⚠️ Terminó con error')+(ev.duration?` · ${fmtElapsed(Math.round(ev.duration))}`:'')+(ev.cost?` · US$${ev.cost.toFixed(4)}`:'')),live);if(live){notify();alertDone(ev,ev.ok)}break;
+    case 'perm': renderPerm(ev,live);if(live&&!decided[ev.ref])ttsNotice((ev.tool==='ExitPlanMode'?'Claude propone un plan':'Claude necesita tu aprobación')+where(ev)+'.');break;
+    case 'question': renderQuestion(ev,live);if(live&&!decided[ev.ref])ttsNotice('Claude tiene una pregunta'+where(ev)+'.');break;
+    case 'decided': decided[ev.ref]=ev.label;closeCard(ev.ref,ev.label);closeNotif(ev.ref);break;
+    case 'status': setStatus(ev);break;
+    case 'revoked': if(ev.session&&ev.session===mySession)location.reload();break;
+    case 'reset': resync();break;   // el historial se borró: recargar desde el servidor
+  }
+}
+
+// ---------- alertas: sonido, notificaciones del sistema, pantalla encendida ----------
+let tplVersion='', jiraKey='null';   // versión de las plantillas y configuración de Jira vistas por última vez
+const PREF_KEY='cr_prefs';
+const prefs={sound:true,notify:true,wake:true,detail:false,asked:false,doneAfter:30,voice:'auto',voiceBrowserOk:false,tts:false,ttsVoice:'',ttsRate:1.1,ttsDecisions:true,tplBar:true};
+try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREF_KEY)||'{}'))}catch(_){}
+function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch(_){}}
+
+let actx=null, swReg=null, wakeLock=null, reminderTimer=null, reminders=0;
+const canNotify=()=>isSecureContext&&'Notification' in window&&'serviceWorker' in navigator;
+const notifGranted=()=>canNotify()&&Notification.permission==='granted';
+
+// Los navegadores solo permiten sonido después de un toque del usuario: se desbloquea con el primero
+function unlockAudio(){
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state!=='running')actx.resume()}catch(_){}
+}
+document.addEventListener('pointerdown',unlockAudio,{passive:true});
+document.addEventListener('keydown',unlockAudio);
+
+function chime(){   // dos notas ascendentes, sintetizadas (sin archivos de audio)
+  if(!prefs.sound||!actx||actx.state!=='running')return false;
+  const t=actx.currentTime;
+  [[880,0],[1318.5,.17],[1760,.34]].forEach(([f,dt],i)=>{
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(.0001,t+dt);
+    g.gain.exponentialRampToValueAtTime(i===2?.22:.3,t+dt+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dt+(i===2?.9:.45));
+    o.connect(g).connect(actx.destination);o.start(t+dt);o.stop(t+dt+1);
+  });
+  return true;
+}
+
+async function setupSW(){
+  if(!('serviceWorker' in navigator)||!isSecureContext)return;
+  try{swReg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready}catch(_){}
+  navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='focus-card')focusCard(e.data.ref)});
+}
+async function requestNotifications(){
+  if(!canNotify())return 'unsupported';
+  let p=Notification.permission;
+  if(p==='default')p=await Notification.requestPermission();
+  if(p==='granted'&&!swReg)await setupSW();
+  return p;
+}
+function focusCard(ref){
+  if(cardTab[ref]&&cardTab[ref]!==activeTab)showTab(cardTab[ref],{scroll:false});   // la tarjeta es de otra sesión
+  const c=document.getElementById('d-'+ref);
+  if(c){c.scrollIntoView({behavior:'smooth',block:'center'});
+        c.animate([{outlineColor:'transparent'},{outline:'2px solid var(--accent)'},{outlineColor:'transparent'}],{duration:900})}
+}
+
+function sysNotify(ev){
+  if(!prefs.notify||!notifGranted()||!swReg)return;
+  if(document.visibilityState==='visible'&&document.hasFocus())return;   // ya la estás viendo
+  const perm=ev.type==='perm';
+  const body=perm?(prefs.detail?`${ev.title}\n${(ev.detail||'').slice(0,140)}`:ev.title)
+                 :(prefs.detail?ev.question:ev.header);
+  const pre=multiTab()&&ev.tab?`[${tabName(ev.tab)}] `:'';
+  swReg.showNotification(pre+(perm?'Claude pide permiso':'Claude tiene una pregunta'),{
+    body, tag:'cr-'+ev.ref, renotify:true, requireInteraction:true,
+    icon:'/icon.svg', badge:'/icon.svg', vibrate:[200,100,200,100,200],
+    data:{ref:ev.ref},
+    actions:perm?[{action:'y',title:'✅ Aprobar'},{action:'n',title:'❌ Rechazar'}]:[],
+  }).catch(()=>{});
+}
+function chimeDone(ok){   // dos notas descendentes: distinto al aviso de decisión
+  if(!prefs.sound||!actx||actx.state!=='running')return false;
+  const t=actx.currentTime, notes=ok?[[1318.5,0],[987.8,.2]]:[[659.3,0],[523.3,.22]];
+  notes.forEach(([f,dt])=>{
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type=ok?'sine':'triangle';o.frequency.value=f;
+    g.gain.setValueAtTime(.0001,t+dt);g.gain.exponentialRampToValueAtTime(.22,t+dt+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dt+.6);
+    o.connect(g).connect(actx.destination);o.start(t+dt);o.stop(t+dt+.7);
+  });
+  return true;
+}
+// Aviso al terminar una tarea larga (umbral configurable en 🔔 Alertas)
+function alertDone(ev,ok){
+  const secs=Math.round(ev.duration||0);
+  if(prefs.doneAfter<0||secs<prefs.doneAfter)return;
+  chimeDone(ok); navigator.vibrate?.(ok?[120,80,120]:[300]);
+  if(!prefs.notify||!notifGranted()||!swReg)return;
+  if(document.visibilityState==='visible'&&document.hasFocus())return;
+  const resumen=(lastText[ev.tab||activeTab]||'').replace(/[`*#>]/g,'').replace(/\s+/g,' ').trim().slice(0,140);
+  swReg.showNotification((multiTab()&&ev.tab?`[${tabName(ev.tab)}] `:'')+(ok?'✅ Claude terminó':'⚠️ Claude terminó con error'),{
+    body:prefs.detail&&resumen?resumen:`Duró ${fmtElapsed(secs)}. Toca para ver el resultado.`,
+    tag:'cr-done', renotify:true, icon:'/icon.svg', badge:'/icon.svg', vibrate:[120,80,120],
+  }).catch(()=>{});
+}
+// Al volver a la app, el aviso de «terminó» ya no hace falta
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')
+    swReg?.getNotifications({tag:'cr-done'}).then(ns=>ns.forEach(n=>n.close())).catch(()=>{});
+});
+function closeNotif(ref){
+  swReg?.getNotifications({tag:'cr-'+ref}).then(ns=>ns.forEach(n=>n.close())).catch(()=>{});
+}
+
+// Llamada al llegar una decisión nueva en vivo (no al recargar el historial)
+function alertDecision(ev){
+  chime(); navigator.vibrate?.([200,100,200]); sysNotify(ev);
+  reminders=0; clearInterval(reminderTimer);
+  // recordatorio cada 30 s mientras siga pendiente (máx. 4 veces)
+  reminderTimer=setInterval(()=>{
+    if(!openCards.size||++reminders>4){clearInterval(reminderTimer);return}
+    chime(); navigator.vibrate?.(200);
+  },30000);
+}
+
+// Mantener la pantalla encendida mientras trabaja: con el teléfono bloqueado el
+// navegador congela la página y ya no puede sonar ni notificar.
+async function syncWakeLock(){
+  try{
+    const want=prefs.wake&&(status.busy||tabsInfo.some(t=>t.busy))&&document.visibilityState==='visible'&&'wakeLock' in navigator;
+    if(want&&!wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null})}
+    else if(!want&&wakeLock){await wakeLock.release();wakeLock=null}
+  }catch(_){wakeLock=null}
+}
+document.addEventListener('visibilitychange',syncWakeLock);
+
+function showAlertBar(){$('#alertBar').hidden=prefs.asked}
+$('#alertOn').onclick=async()=>{
+  unlockAudio(); prefs.asked=true; savePrefs(); $('#alertBar').hidden=true;
+  const p=await requestNotifications();
+  chime();
+  toast(p==='granted'?'🔔 Alertas activadas (sonido + notificaciones)'
+       :p==='unsupported'?'🔔 Sonido activado. Notificaciones: requieren HTTPS (ver 🔔 Alertas)'
+       :'🔔 Sonido activado. Notificaciones bloqueadas en este navegador');
+};
+$('#alertLater').onclick=()=>{prefs.asked=true;savePrefs();$('#alertBar').hidden=true};
+
+// ---------- reglas de aprobación por patrón ----------
+const RULE_HELP={
+  bash:'Se compara con el comando completo. Ej.: <code>git status*</code>, <code>npm test*</code>, <code>*rm -rf*</code>',
+  edit:'Se compara con la ruta (absoluta o relativa a la carpeta). Ej.: <code>docs/*</code>, <code>*.env</code>',
+  read:'Se compara con la ruta o el patrón de búsqueda. Ej.: <code>/etc/*</code>',
+  mcp:'Se compara con el nombre de la herramienta: <code>mcp__servidor__herramienta</code>. Ej.: <code>mcp__miservidor__get*</code> (sus lecturas) o <code>mcp__miservidor__*</code> (todo el servidor)',
+  web:'Se compara con la URL o la búsqueda. Ej.: <code>https://docs.empresa.com/*</code>',
+};
+async function rulesDialog(prefill){
+  const j=await api('/api/cmd',{cmd:'rules'}); if(!j.rules)return;
+  const kinds=j.kinds||{};
+  const row=r=>`<div class="rule" data-id="${esc(r.id)}"><div class="what">${esc(kinds[r.kind]||r.kind)} · <code>${esc(r.pattern)}</code>${r.note?`<small>${esc(r.note)}</small>`:''}</div><button title="Eliminar" data-del="${esc(r.id)}">🗑</button></div>`;
+  const deny=j.rules.filter(r=>r.action==='deny'), allow=j.rules.filter(r=>r.action==='allow');
+  showDialog(`<div class="rules"><h3>⚖️ Reglas de aprobación</h3>
+    <p class="note">Se aplican antes de mostrarte una tarjeta. <b>Bloquear</b> gana siempre, incluso en «Aceptar ediciones». <b>Aprobar siempre</b> nunca se aplica a comandos encadenados (<code>&amp;&amp;</code>, <code>;</code>, <code>|</code>…): esos vuelven a preguntar.</p>
+    <h4>⛔ Bloquear siempre</h4>${deny.map(row).join('')||'<p class="note">Ninguna.</p>'}
+    <h4>✅ Aprobar siempre</h4>${allow.map(row).join('')||'<p class="note">Ninguna. Crea una desde aquí o con «⚖️ Crear regla» en una tarjeta.</p>'}
+    <h4>➕ Nueva regla</h4>
+    <form class="rule-form" id="ruleForm">
+      <div class="row2">
+        <select name="action" title="Acción"><option value="allow">✅ Aprobar</option><option value="deny">⛔ Bloquear</option></select>
+        <select name="kind">${Object.entries(kinds).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select>
+      </div>
+      <input name="pattern" placeholder="Patrón (usa * como comodín)" maxlength="200" autocomplete="off" required>
+      <input name="note" placeholder="Nota opcional (p. ej. «pruebas del proyecto»)" maxlength="100" autocomplete="off">
+      <p class="note" id="ruleHelp"></p>
+      <button type="submit">Agregar regla</button>
+    </form></div>`);
+  const f=$('#ruleForm'), help=()=>{$('#ruleHelp').innerHTML=RULE_HELP[f.kind.value]||''};
+  if(prefill){f.kind.value=prefill.kind;f.pattern.value=prefill.pattern;f.action.value=prefill.action||'allow';
+    setTimeout(()=>{f.pattern.focus();f.pattern.select()},50)}
+  help(); f.kind.onchange=help;
+  f.onsubmit=async e=>{e.preventDefault();
+    const r=await api('/api/cmd',{cmd:'rule_add',action:f.action.value,kind:f.kind.value,pattern:f.pattern.value,note:f.note.value});
+    if(r.ok){toast('Regla agregada');rulesDialog()}};
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('¿Eliminar esta regla?'))return;
+    const r=await api('/api/cmd',{cmd:'rule_del',arg:b.dataset.del}); if(r.ok)rulesDialog()});
+}
+
+// ---------- seguridad: sesiones por dispositivo ----------
+let mySession=null;
+fetch('/api/session',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{mySession=j&&j.id}).catch(()=>{});
+function ago(t){
+  const s=Math.max(0,Math.round(Date.now()/1000+clockSkew-t));
+  if(s<60)return 'ahora';if(s<3600)return `hace ${Math.round(s/60)} min`;
+  if(s<86400)return `hace ${Math.round(s/3600)} h`;return `hace ${Math.round(s/86400)} d`;
+}
+async function checkAuth(){   // si la sesión fue cerrada, volver al login
+  try{const r=await fetch('/api/session',{cache:'no-store'});if(r.status===401)location.reload()}catch(_){}
+}
+async function securityDialog(){
+  const j=await api('/api/cmd',{cmd:'sessions_list'}); if(!j.sessions)return;
+  const rows=j.sessions.map(x=>`<div class="sess"><div class="who">${esc(x.label)} ${x.current?'<span class="me">· este dispositivo</span>':''}
+      <small>${esc(x.ip)} · activo ${ago(x.last_seen)} · desde ${new Date(x.created*1000).toLocaleDateString()}</small></div>
+      ${x.current?'':`<button data-revoke="${esc(x.id)}">Cerrar</button>`}</div>`).join('');
+  showDialog(`<h3>🔐 Seguridad</h3>
+    <h4>Dispositivos con sesión abierta</h4>
+    <p class="note">Cada dispositivo tiene su propia sesión, válida por ${j.days} días. Cerrar una sesión desconecta ese dispositivo al instante.</p>
+    ${rows}
+    <div class="sec-actions">
+      ${j.sessions.length>1?'<button id="revokeOthers">Cerrar todas las demás</button>':''}
+      <button class="danger" id="rotateToken">🔑 Rotar token de acceso</button>
+    </div>
+    <div id="tokenOut"></div>
+    <h4>📱 Segundo factor (2FA)</h4>
+    <p class="note">${j.totp?'✅ Activo: para entrar se pide el token y un código de la app de autenticación.'
+      :'Desactivado. Con 2FA, el token o el QR solos no bastan para entrar: también hace falta un código de 6 dígitos de una app como Google Authenticator, Microsoft Authenticator o Aegis.'}</p>
+    <div class="sec-actions"><button id="totpBtn" ${j.totp?'class="danger"':''}>${j.totp?'Desactivar 2FA':'Activar 2FA'}</button></div>
+    <div id="totpOut"></div>
+    <h4>🧾 Auditoría</h4>
+    <p class="note">Registro local de inicios de sesión, tareas, decisiones, reglas y acciones de Claude.</p>
+    <div class="sec-actions"><button id="openAudit">Ver registro</button></div>
+    <h4>💬 Historial del chat</h4>
+    <p class="note">Se guarda en tu PC y se recupera al reiniciar el servidor. Borrarlo no afecta a la auditoría ni a la sesión de Claude.</p>
+    <div class="sec-actions"><button class="danger" id="clearHistory">🧹 Borrar historial del chat</button></div>`);
+  $('#openAudit').onclick=()=>auditDialog('');
+  $('#totpBtn').onclick=()=>j.totp?totpDisable():totpSetup();
+  $('#clearHistory').onclick=async()=>{
+    if(!confirm('¿Borrar el historial del chat en todos los dispositivos?'))return;
+    const r=await api('/api/cmd',{cmd:'clear_history'}); if(r.ok){dlg.close();toast('Historial borrado')}};
+  document.querySelectorAll('[data-revoke]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('¿Cerrar la sesión de ese dispositivo?'))return;
+    const r=await api('/api/cmd',{cmd:'session_revoke',arg:b.dataset.revoke});if(r.ok)securityDialog()});
+  const ro=$('#revokeOthers'); if(ro)ro.onclick=async()=>{
+    if(!confirm('¿Cerrar la sesión en todos los demás dispositivos?'))return;
+    const r=await api('/api/cmd',{cmd:'sessions_revoke_others'});if(r.ok){toast(`Sesiones cerradas: ${r.closed}`);securityDialog()}};
+  $('#rotateToken').onclick=async()=>{
+    if(!confirm('Se generará un token nuevo y se cerrarán todas las demás sesiones. ¿Continuar?'))return;
+    const r=await api('/api/cmd',{cmd:'rotate_token'}); if(!r.ok)return;
+    const link=`${location.origin}/?token=${r.token}`;
+    $('#tokenOut').innerHTML=`<p class="note warn">Token nuevo (se muestra solo esta vez; también aparece en la terminal al reiniciar):</p>
+      <div class="newtoken">${esc(r.token)}</div><p class="note">Enlace para otros dispositivos: <code>${esc(link)}</code></p>`;
+  };
+}
+
+// ---------- segundo factor ----------
+function codeForm(label,onOk){
+  $('#totpOut').insertAdjacentHTML('beforeend',`<form class="totp-form" id="totpForm">
+    <input id="totpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456">
+    <button class="primary">${label}</button></form><p class="note warn" id="totpErr"></p>`);
+  const f=$('#totpForm'); $('#totpCode').focus();
+  f.onsubmit=async ev=>{ev.preventDefault();
+    const r=await api('/api/cmd',{...onOk,code:$('#totpCode').value});
+    if(r.ok){dlg.close();toast(onOk.cmd==='totp_enable'
+      ?`2FA activado${r.closed?` · ${r.closed} sesiones cerradas`:''}`:'2FA desactivado')}
+    else $('#totpErr').textContent=r.error||'Error'};
+}
+async function totpSetup(){
+  const r=await api('/api/cmd',{cmd:'totp_setup'}); if(!r.secret)return;
+  $('#totpBtn').remove();
+  const key=r.secret.match(/.{1,4}/g).join(' ');
+  $('#totpOut').innerHTML=`<ol class="note steps">
+      <li>En el teléfono, abre tu app de autenticación y agrega una cuenta${r.qr?' escaneando este QR':''}:</li></ol>
+    ${r.qr?`<img class="totp-qr" src="${esc(r.qr)}" alt="QR para la app de autenticación">`:''}
+    <p class="note">${r.qr?'O escribe':'Escribe'} la clave a mano: <span class="newtoken">${esc(key)}</span>
+      Si estás en el teléfono: <a href="${esc(r.uri)}">abrir en la app</a>.</p>
+    <ol class="note steps" start="2"><li>Escribe el código que muestra la app para confirmar. Se cerrarán las sesiones de los demás dispositivos.</li></ol>`;
+  codeForm('Activar',{cmd:'totp_enable'});
+}
+function totpDisable(){
+  $('#totpBtn').remove();
+  $('#totpOut').innerHTML='<p class="note">Escribe un código actual de la app para desactivar el segundo factor.</p>';
+  codeForm('Desactivar',{cmd:'totp_disable'});
+}
+
+// ---------- auditoría ----------
+function auditText(e){
+  const t=x=>esc(String(x??''));
+  switch(e.event){
+    case 'login':return `🔓 Inicio de sesión (${t(e.via)})`;
+    case 'login_failed':return `⚠️ ${e.reason?t(e.reason):'Token incorrecto'}${e.via?` (${t(e.via)})`:''}`;
+    case 'login_blocked':return '⛔ Login bloqueado por demasiados intentos';
+    case 'logout':return '🚪 Cierre de sesión';
+    case 'session_revoked':return `🔒 Sesión cerrada: ${t(e.target)}`;
+    case 'sessions_revoked':return `🔒 Sesiones cerradas: ${t(e.count)}`;
+    case 'token_rotated':return `🔑 Token rotado (${t(e.closed)} sesiones cerradas)`;
+    case 'task':return `📝 Tarea: ${t(e.prompt)}`;
+    case 'decision':return `🛂 ${t(e.result)} · <code>${t(e.target)}</code>`;
+    case 'answer':return `❓ ${t(e.question)} → ${t(e.answer)}`;
+    case 'auto_approved':return `⚖️ Aprobado por regla ${t(e.rule)} · <code>${t(e.target)}</code>`;
+    case 'blocked':return `⛔ Bloqueado por regla ${t(e.rule)} · <code>${t(e.target)}</code>`;
+    case 'tool':return `› <code>${t(e.target)}</code>`;
+    case 'mode':return `🔀 Modo: ${t((MODES[e.mode]||{}).label||e.mode)}`;
+    case 'rule_add':return `⚖️ Regla agregada (${e.action==='deny'?'bloquear':'aprobar'}): ${t(e.rule)}`;
+    case 'rule_del':return `⚖️ Regla eliminada: ${t(e.rule)}`;
+    case 'stop':return '⏹️ Tarea detenida';
+    case 'new_session':return '🆕 Sesión nueva';
+    case 'resume':return `🔁 Sesión retomada ${t(String(e.claude_session||'').slice(0,8))}`;
+    case 'cd':return `📁 Carpeta: ${t(e.cwd)}`;
+    case 'history_cleared':return '🧹 Historial del chat borrado';
+    case 'totp_enabled':return `📱 Segundo factor activado (${t(e.closed)} sesiones cerradas)`;
+    case 'totp_disabled':return '📱 Segundo factor desactivado';
+    case 'totp_failed':return `⚠️ Código 2FA incorrecto al ${t(e.step)}`;
+    default:return t(e.event);
+  }
+}
+async function auditDialog(q){
+  const j=await api('/api/cmd',{cmd:'audit',q,limit:200}); if(!j.events)return;
+  const rows=j.events.map(e=>`<div class="audit-row"><div>${auditText(e)}</div>
+     <small>${new Date(e.ts*1000).toLocaleString()} · ${esc(e.device||'Claude')}${e.ip?` · ${esc(e.ip)}`:''}</small></div>`).join('');
+  showDialog(`<h3>🧾 Auditoría</h3>
+    <form id="auditForm" class="rule-form"><input name="q" placeholder="Buscar (p. ej. rm, login, Bloqueado, 192.168…)" value="${esc(q)}"></form>
+    <p class="note">${j.events.length} eventos más recientes${q?` que contienen «${esc(q)}»`:''}. Archivo: <code>${esc(j.file)}</code> · <a href="/api/audit.jsonl" download>Descargar completo</a></p>
+    <div class="audit">${rows||'<p class="note">Sin eventos.</p>'}</div>`);
+  $('#auditForm').onsubmit=e=>{e.preventDefault();auditDialog(e.target.q.value.trim())};
+}
+
+function alertsDialog(){
+  const st=!canNotify()?(isSecureContext?'Este navegador no las soporta':'Requieren HTTPS')
+          :({granted:'✅ Permitidas',denied:'⛔ Bloqueadas en el navegador',default:'Sin permiso todavía'})[Notification.permission];
+  const ios=/iPhone|iPad/.test(navigator.userAgent), standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+  let notes='';
+  if(!isSecureContext)notes+=`<p class="note warn">Las notificaciones del sistema necesitan HTTPS. En este PC usa <code>http://127.0.0.1</code>; en el teléfono, activa HTTPS con <code>gen-certs.sh</code>${status.ca?' e instala la <a href="/ca.crt">CA local</a>':''} (ver README).</p>`;
+  if(isSecureContext&&status.ca)notes+=`<p class="note">¿Advertencia de certificado en el teléfono? Instala la <a href="/ca.crt">CA local</a> (ver README).</p>`;
+  if(ios&&!standalone)notes+=`<p class="note warn">En iPhone las notificaciones solo funcionan si agregas esta página a la pantalla de inicio (Compartir → Agregar a inicio) y la abres desde ahí.</p>`;
+  if(window.Notification?.permission==='denied')notes+=`<p class="note warn">Están bloqueadas: habilítalas en los ajustes del sitio del navegador.</p>`;
+  notes+=`<p class="note">Con el teléfono bloqueado, el navegador pausa la página: deja activada «Pantalla encendida mientras trabaja» para no perder avisos.</p>`;
+  showDialog(`<h3>🔔 Alertas</h3>
+    <label class="opt-row"><span>Sonido<small>Al pedir una decisión y cada 30 s mientras siga pendiente</small></span><input type="checkbox" data-pref="sound"></label>
+    <label class="opt-row"><span>Avisar al terminar<small>Sonido y notificación cuando acaba una tarea larga</small></span>
+      <select data-pref-num="doneAfter">
+        <option value="0">Siempre</option><option value="30">Más de 30 s</option><option value="60">Más de 1 min</option>
+        <option value="120">Más de 2 min</option><option value="300">Más de 5 min</option><option value="-1">Nunca</option>
+      </select></label>
+    <label class="opt-row"><span>Notificaciones del sistema<small>${st}. Con botones Aprobar/Rechazar</small></span><input type="checkbox" data-pref="notify"></label>
+    <label class="opt-row"><span>Detalle en la notificación<small>Muestra el comando o archivo (visible en la pantalla bloqueada)</small></span><input type="checkbox" data-pref="detail"></label>
+    <label class="opt-row"><span>Pantalla encendida mientras trabaja<small>${'wakeLock' in navigator?'Evita que el teléfono se bloquee y congele la página':'No disponible en este navegador'}</small></span><input type="checkbox" data-pref="wake"></label>
+    ${notes}
+    <button class="row" id="testAlert" style="text-align:center">🔊 Probar alerta</button>`);
+  document.querySelectorAll('[data-pref]').forEach(i=>{
+    i.checked=!!prefs[i.dataset.pref];
+    i.onchange=async()=>{
+      prefs[i.dataset.pref]=i.checked;savePrefs();
+      if(i.dataset.pref==='notify'&&i.checked){const p=await requestNotifications();if(p!=='granted')toast('No se pudo activar: '+(p==='unsupported'?'requiere HTTPS':'permiso denegado'))}
+      if(i.dataset.pref==='wake')syncWakeLock();
+    };
+  });
+  document.querySelectorAll('[data-pref-num]').forEach(sel=>{
+    sel.value=String(prefs[sel.dataset.prefNum]);
+    sel.onchange=()=>{prefs[sel.dataset.prefNum]=Number(sel.value);savePrefs()};
+  });
+  $('#testAlert').onclick=async()=>{
+    unlockAudio();
+    const sonó=chime(); navigator.vibrate?.([200,100,200]);
+    if(prefs.notify&&notifGranted()&&swReg){
+      swReg.showNotification('Claude Remoto · prueba',{body:'Así se verán los avisos de decisión',tag:'cr-test',icon:'/icon.svg',vibrate:[200,100,200]});
+    }
+    toast(sonó?'🔊 Sonido OK':'🔇 Sonido desactivado o bloqueado');
+  };
+}
+
+// ---------- sincronización en vivo entre dispositivos ----------
+// 1) SSE con latido visible: si pasan STALE_MS sin datos, la conexión murió en silencio
+//    (pantalla bloqueada, cambio de Wi-Fi) y se reconecta sola.
+// 2) Si el flujo SSE nunca llega (proxy/antivirus que lo retiene), se cambia a long-polling.
+// 3) Al volver a la pestaña, recuperar la red o restaurar la página, se resincroniza.
+// 4) Cada evento tiene id: no se duplica ni se pierde nada entre reconexiones.
+const STALE_MS=25000, FIRST_MS=8000;
+let mode='sse', lastId=0, lastSeen=0, connOk=false, gotFirst=false, sseFails=0,
+    firstTimer=null, hiddenAt=0, pollCtl=null, polling=false, kick=false;
+
+function paintDot(){
+  const d=$('#dot');
+  d.className=!connOk?'off':(status.busy?'busy':'idle');
+  d.title=connOk?`conectado (${mode==='sse'?'tiempo real':'sondeo'})`:'reconectando…';
+}
+function alive(){lastSeen=Date.now(); if(!connOk){connOk=true;paintDot()}}
+function down(){if(connOk){connOk=false;paintDot()}}
+
+function applySnapshot(s){
+  [log,...Object.values(logs)].forEach(m=>m.innerHTML='');decided={};openCards.clear();
+  for(const o of [activity,lastText,cardTab])for(const k in o)delete o[k];
+  setStatus(s.status);   // crea las pestañas antes de repartir el historial
+  s.history.filter(e=>e.type==='decided').forEach(e=>decided[e.ref]=e.label);
+  s.history.forEach(e=>{if(e.type!=='decided')render(e,false)});
+  (s.streams||[]).forEach(st=>inLog(logFor(st.tab),()=>renderStream(st,false)));   // respuestas a medio escribir
+  lastId=s.seq; setStatus({});
+  Object.values(logs).forEach(m=>{ensureHint(m);m.scrollTop=m.scrollHeight});
+  log.querySelector('.hint')?.setAttribute('id','hint');
+  if(location.hash.startsWith('#d-')){const r=location.hash.slice(3);history.replaceState(null,'','/');setTimeout(()=>focusCard(r),100)}
+}
+function handle(ev){
+  if(ev.type==='snapshot')return applySnapshot(ev);
+  if(ev.type==='batch'){ev.events.forEach(handle);lastId=Math.max(lastId,ev.seq);if(ev.status)setStatus(ev.status);
+    (ev.streams||[]).forEach(st=>inLog(logFor(st.tab),()=>renderStream(st,true)));return}
+  if(ev.id){if(ev.id<=lastId)return;lastId=ev.id}   // descarta duplicados
+  render(ev,true);
+}
+
+function stopSSE(){if(es){es.close();es=null}clearTimeout(firstTimer)}
+function startSSE(){
+  stopSSE(); gotFirst=false;
+  es=new EventSource('/events');
+  es.onmessage=m=>{gotFirst=true;sseFails=0;alive();handle(JSON.parse(m.data))};
+  es.addEventListener('ping',()=>{gotFirst=true;alive()});
+  es.onerror=()=>{down();checkAuth()};   // reintenta solo; si la sesión ya no existe, al login
+  firstTimer=setTimeout(()=>{
+    if(gotFirst)return;
+    if(++sseFails>=2){mode='poll';stopSSE();pollLoop()} else startSSE();
+  },FIRST_MS);
+}
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function pollLoop(){
+  if(polling)return; polling=true; paintDot();
+  while(mode==='poll'){
+    pollCtl=new AbortController(); const t=setTimeout(()=>pollCtl.abort(),35000);
+    try{
+      const r=await fetch('/api/poll?after='+lastId,{signal:pollCtl.signal,cache:'no-store'});
+      if(r.status===401){location.reload();return}
+      if(!r.ok)throw new Error(r.status);
+      alive(); handle(await r.json());
+    }catch(e){
+      if(kick){kick=false;continue}
+      down(); await sleep(2000);
+    }finally{clearTimeout(t)}
+  }
+  polling=false;
+}
+
+function resync(){
+  lastSeen=Date.now();   // margen para que la nueva conexión llegue antes del próximo chequeo
+  if(mode==='sse')startSSE();
+  else{kick=true;pollCtl?.abort()}
+}
+// watchdog: en sondeo cada respuesta puede tardar hasta 25 s, por eso más margen
+setInterval(()=>{if(Date.now()-lastSeen>(mode==='sse'?STALE_MS:45000)){down();resync()}},5000);
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){hiddenAt=Date.now();return}
+  unseen=0;document.title='Claude Remoto';
+  if(Date.now()-hiddenAt>3000||!connOk)resync();
+});
+window.addEventListener('online',resync);
+window.addEventListener('pageshow',e=>{if(e.persisted)resync()});
+$('#dot').onclick=()=>toast($('#dot').title);
+$('#modeBtn').onclick=modeDialog;   // en el celular no hay tooltips
+showAlertBar(); setupSW();
+lastSeen=Date.now();
+startSSE();
+
+// ---------- entrada ----------
+function autosize(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,window.innerHeight*.4)+'px'}
+input.addEventListener('input',()=>{autosize();paintTemplates();cmdSel=0;paintCommands()});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!('ontouchstart' in window)){e.preventDefault();send()}});
+async function send(textOverride){
+  const fromInput=textOverride===undefined, t=(fromInput?input.value:textOverride).trim();
+  if((!t&&!attached.length)||status.busy||sending)return false;
+  sending=true; $('#send').disabled=true;
+  if(attached.length)toast(`Enviando ${attached.length===1?'la captura':attached.length+' capturas'}…`);
+  try{
+    const had=attached.length;
+    const j=await api('/api/send',{text:t,images:attached.map(a=>({media_type:a.media_type,data:a.data,thumb:a.thumb}))});
+    if(had&&j.ok)$('#toast').style.display='none';   // quita «Enviando…»; si falló, queda el error de api()
+    if(!j.ok)return false;
+    if(fromInput){input.value='';autosize()}
+    clearAttachments(); paintTemplates(); return true;
+  }finally{sending=false;$('#send').disabled=!!status.busy}
+}
+
+// ---------- capturas adjuntas ----------
+// Se reducen en el navegador (máx. 2000 px) y van a Claude sin guardarse en el PC; en el chat queda una miniatura.
+const MAX_ATTACH=5, MAX_SIDE=2000, MAX_BYTES=4.5*1024*1024;
+let attached=[], sending=false;
+const blobB64=b=>new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=ko;r.readAsDataURL(b)});
+const canvasBlob=(c,type,q)=>new Promise(ok=>c.toBlob(ok,type,q));
+async function prepImage(file){
+  const bmp=await createImageBitmap(file);
+  const scale=Math.min(1,MAX_SIDE/Math.max(bmp.width,bmp.height));
+  const c=document.createElement('canvas'); c.width=Math.round(bmp.width*scale); c.height=Math.round(bmp.height*scale);
+  c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  const keep=scale===1&&/^image\/(png|jpeg|gif|webp)$/.test(file.type)&&file.size<=MAX_BYTES&&file.size<1.5*1024*1024;
+  let blob=keep?file:await canvasBlob(c,file.type==='image/png'?'image/png':'image/jpeg',0.88);
+  if(blob.size>MAX_BYTES)blob=await canvasBlob(c,'image/jpeg',0.8);   // capturas PNG muy grandes
+  if(blob.size>MAX_BYTES)throw new Error('La imagen es demasiado grande');
+  const t=document.createElement('canvas'), ts=Math.min(1,200/Math.max(c.width,c.height));
+  t.width=Math.max(1,Math.round(c.width*ts)); t.height=Math.max(1,Math.round(c.height*ts));
+  const tx=t.getContext('2d'); tx.fillStyle='#fff'; tx.fillRect(0,0,t.width,t.height); tx.drawImage(c,0,0,t.width,t.height);
+  const thumb=await canvasBlob(t,'image/jpeg',0.7);
+  bmp.close?.();
+  return {media_type:blob.type,data:await blobB64(blob),thumb:await blobB64(thumb),url:URL.createObjectURL(thumb)};
+}
+async function addFiles(files){
+  const imgs=[...files].filter(f=>f&&f.type.startsWith('image/'));
+  if(!imgs.length){toast('Solo se pueden adjuntar imágenes');return}
+  for(const f of imgs){
+    if(attached.length>=MAX_ATTACH){toast(`Máximo ${MAX_ATTACH} capturas por tarea`);break}
+    try{attached.push(await prepImage(f))}catch(e){toast('No se pudo usar la imagen: '+(e.message||e))}
+  }
+  paintAttachments();
+}
+function clearAttachments(){attached.forEach(a=>URL.revokeObjectURL(a.url));attached=[];paintAttachments()}
+function paintAttachments(){
+  const bar=$('#attachBar'); bar.hidden=!attached.length; bar.innerHTML='';
+  attached.forEach((a,i)=>{const d=document.createElement('div');d.className='att';
+    d.innerHTML=`<img src="${a.url}" alt="Captura ${i+1}"><button aria-label="Quitar captura ${i+1}">✕</button>`;
+    d.querySelector('button').onclick=()=>{URL.revokeObjectURL(a.url);attached.splice(i,1);paintAttachments()};bar.appendChild(d)});
+  if(attached.length){const n=document.createElement('span');n.className='count';n.textContent=`${attached.length}/${MAX_ATTACH} · se envían con la tarea`;bar.appendChild(n)}
+}
+$('#attachBtn').onclick=()=>$('#fileIn').click();
+$('#fileIn').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+input.addEventListener('paste',e=>{   // Ctrl+V de una captura en el PC
+  const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile());
+  if(files.length){e.preventDefault();addFiles(files)}
+});
+document.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){e.preventDefault();document.body.classList.add('dropping')}});
+document.addEventListener('dragleave',e=>{if(!e.relatedTarget)document.body.classList.remove('dropping')});
+document.addEventListener('drop',e=>{document.body.classList.remove('dropping');
+  if(e.dataTransfer?.files?.length){e.preventDefault();addFiles(e.dataTransfer.files)}});
+
+// ---------- comandos «/» de Claude Code (integrados, .claude/commands, skills, MCP) ----------
+let commands=null, cmdCwd=null, cmdLoading=false, cmdError='', cmdSel=0, cmdItems=[], cmdDismissed=null;
+function cmdQuery(){const m=/^\/(\S*)$/.exec(input.value);return m?m[1].toLowerCase():null}
+async function loadCommands(){
+  cmdLoading=true; cmdError='';
+  const j=await api('/api/cmd',{cmd:'commands'}); cmdLoading=false;
+  if(j.commands){commands=j.commands;cmdCwd=j.cwd}else{commands=[];cmdCwd=status.cwd;cmdError=j.error||'No se pudo obtener la lista'}
+  paintCommands();
+}
+function paintCommands(){
+  const box=$('#cmdList'), q=cmdQuery();
+  if(q===null||input.value===cmdDismissed){box.hidden=true;cmdItems=[];return}
+  box.hidden=false;
+  if(commands===null||(cmdCwd!==status.cwd&&!cmdLoading)){
+    if(!cmdLoading)loadCommands();
+    box.innerHTML='<div class="cmd-note">Cargando los comandos de Claude…</div>';cmdItems=[];return}
+  if(cmdLoading){box.innerHTML='<div class="cmd-note">Cargando los comandos de Claude…</div>';cmdItems=[];return}
+  const low=c=>c.name.toLowerCase();
+  cmdItems=[...commands.filter(c=>low(c).startsWith(q)),
+            ...commands.filter(c=>!low(c).startsWith(q)&&(low(c).includes(q)||c.description.toLowerCase().includes(q)))].slice(0,60);
+  if(!cmdItems.length){box.innerHTML=`<div class="cmd-note">${esc(cmdError||'Ningún comando coincide')}</div>`;return}
+  cmdSel=Math.min(cmdSel,cmdItems.length-1);
+  box.innerHTML='';
+  cmdItems.forEach((c,i)=>{const b=document.createElement('button');b.type='button';b.className='cmd'+(i===cmdSel?' sel':'');
+    b.dataset.cmdName=c.name;b.setAttribute('role','option');b.setAttribute('aria-selected',i===cmdSel);
+    b.innerHTML=`<b>/${esc(c.name)}</b>${c.hint?` <span class="hint">${esc(c.hint)}</span>`:''}${c.description?`<small>${esc(c.description)}</small>`:''}`;
+    b.onmousedown=e=>e.preventDefault();   // no quitar el foco del cuadro
+    b.onclick=()=>pickCommand(c);box.appendChild(b)});
+  box.querySelector('.sel')?.scrollIntoView({block:'nearest'});
+}
+function pickCommand(c){
+  input.value='/'+c.name+' '; autosize(); cmdItems=[]; $('#cmdList').hidden=true; paintTemplates();
+  input.focus(); input.setSelectionRange(input.value.length,input.value.length);
+  if(c.hint)toast(`/${c.name} ${c.hint}`);
+}
+input.addEventListener('keydown',e=>{   // en captura: antes que «Enter envía»
+  if($('#cmdList').hidden)return;
+  if(e.key==='Escape'){e.preventDefault();cmdDismissed=input.value;paintCommands();return}
+  if(!cmdItems.length)return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();
+    cmdSel=(cmdSel+(e.key==='ArrowDown'?1:cmdItems.length-1))%cmdItems.length;paintCommands()}
+  else if(e.key==='Tab'||(e.key==='Enter'&&!e.shiftKey)){e.preventDefault();e.stopImmediatePropagation();pickCommand(cmdItems[cmdSel])}
+},true);
+
+// ---------- configuración de Jira ----------
+function jiraDialog(){
+  const j=status.jira||{url:'',projects:[]};
+  showDialog(`<h3>🎫 Jira</h3>
+    <p class="note">Las claves de tickets que aparecen en el chat (como ABC-123) se convierten en enlaces que abren el ticket en una pestaña nueva. Se guarda en tu PC y aplica en todos tus dispositivos.</p>
+    <form class="tpl-form" id="jiraForm">
+      <label for="jiraUrl">Dirección de tu Jira</label>
+      <input id="jiraUrl" type="url" inputmode="url" placeholder="https://tuempresa.atlassian.net" value="${esc(j.url||'')}">
+      <label for="jiraProj">Solo estos proyectos (opcional)</label>
+      <input id="jiraProj" placeholder="ABC, DEV" value="${esc((j.projects||[]).join(', '))}" autocapitalize="characters">
+      <p class="note">Sin proyectos, se enlaza cualquier clave salvo las que suelen ser otra cosa: ${esc((j.exclude||[]).map(x=>x+'-…').join(', '))} (por ejemplo UTF-8 o SHA-256).</p>
+      <p class="note warn" id="jiraErr"></p>
+      <div class="sec-actions"><button type="submit">Guardar</button>${j.url?'<button type="button" id="jiraOff">Quitar enlaces</button>':''}</div>
+    </form>`);
+  const save=async(url,projects)=>{const r=await api('/api/cmd',{cmd:'jira_set',url,projects});
+    if(r.ok){setStatus({jira:r.jira});dlg.close();toast(r.jira.url?'Enlaces a Jira activos':'Enlaces a Jira desactivados')}
+    else $('#jiraErr').textContent=r.error||'Error'};
+  $('#jiraForm').onsubmit=e=>{e.preventDefault();save($('#jiraUrl').value,$('#jiraProj').value)};
+  const off=$('#jiraOff'); if(off)off.onclick=()=>save('','');
+}
+
+// ---------- plantillas ----------
+let templates=[];
+const FIELD_RE=/\{[^{}\n]{1,40}\}/;
+async function loadTemplates(){const j=await api('/api/cmd',{cmd:'templates'});if(j.templates)setTemplates(j.templates)}
+function setTemplates(list){templates=list||[];paintTemplates();if(dlg.open&&$('#tplList'))templatesDialog()}
+function paintTemplates(){
+  const bar=$('#tpls');
+  bar.hidden=!prefs.tplBar||!templates.length||!!input.value.trim()||!!(typeof rec!=='undefined'&&rec);
+  if(bar.hidden)return;
+  bar.innerHTML='';
+  templates.forEach(t=>{const b=document.createElement('button');b.textContent=t.name;b.dataset.tpl=t.id;
+    if(t.send)b.className='direct';b.title=t.send?'Se envía directo':'Se inserta para completar';
+    b.onclick=()=>useTemplate(t);bar.appendChild(b)});
+  const m=document.createElement('button');m.textContent='⚙️';m.title='Administrar plantillas';m.onclick=templatesDialog;bar.appendChild(m);
+}
+function selectField(){   // deja seleccionado el primer {campo} para escribirlo o dictarlo
+  const m=FIELD_RE.exec(input.value); input.focus();
+  if(m)input.setSelectionRange(m.index,m.index+m[0].length);
+  else input.setSelectionRange(input.value.length,input.value.length);
+}
+async function useTemplate(t){
+  if(t.send&&!FIELD_RE.test(t.text)){
+    if(status.busy){insertText(t.text);paintTemplates();input.focus();toast('Claude está trabajando: la plantilla quedó en el cuadro');return}
+    if(await send(t.text))toast('Enviado: '+t.name);   // incluye las capturas adjuntas, si hay
+    return;
+  }
+  insertText(t.text); paintTemplates(); selectField();
+}
+function templatesDialog(edit){
+  if(edit!==undefined)return templateForm(edit);
+  const rows=templates.map((t,i)=>`<div class="tpl-item"><div class="who">${esc(t.name)}
+      <span class="tag">${t.send?'➤ envía directo':FIELD_RE.test(t.text)?'✏️ para completar':'se inserta'}</span><small>${esc(t.text)}</small></div>
+      <button data-up="${esc(t.id)}" ${i?'':'disabled'} aria-label="Subir">↑</button><button data-down="${esc(t.id)}" ${i<templates.length-1?'':'disabled'} aria-label="Bajar">↓</button>
+      <button data-edit="${esc(t.id)}" aria-label="Editar">✏️</button><button data-del="${esc(t.id)}" aria-label="Borrar">🗑</button></div>`).join('');
+  showDialog(`<h3>⚡ Plantillas</h3>
+    <p class="note">Instrucciones frecuentes, iguales en todos tus dispositivos. Aparecen sobre el cuadro de texto cuando está vacío. Las marcadas con ➤ se envían al tocarlas; las demás se insertan para completarlas. Un campo entre llaves, como <code>{ticket}</code>, queda seleccionado para escribirlo o dictarlo.</p>
+    <div id="tplList">${rows||'<p class="note">No hay plantillas.</p>'}</div>
+    <div class="sec-actions"><button id="tplNew">➕ Nueva plantilla</button><button id="tplReset">Restablecer ejemplos</button></div>
+    <div class="tts-row"><label for="tplBar">Mostrar las plantillas sobre el cuadro de texto</label><input type="checkbox" id="tplBar" ${prefs.tplBar?'checked':''}></div>`);
+  const cmd=(c,extra)=>api('/api/cmd',{cmd:c,...extra});
+  $('#tplNew').onclick=()=>templateForm(null);
+  $('#tplReset').onclick=async()=>{if(confirm('¿Reemplazar tus plantillas por las de ejemplo?'))await cmd('templates_reset')};
+  $('#tplBar').onchange=e=>{prefs.tplBar=e.target.checked;savePrefs();paintTemplates()};
+  document.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>cmd('template_move',{arg:b.dataset.up,delta:-1}));
+  document.querySelectorAll('[data-down]').forEach(b=>b.onclick=()=>cmd('template_move',{arg:b.dataset.down,delta:1}));
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>templateForm(templates.find(t=>t.id===b.dataset.edit)));
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    const t=templates.find(x=>x.id===b.dataset.del); if(t&&confirm(`¿Borrar «${t.name}»?`))await cmd('template_del',{arg:t.id})});
+}
+function templateForm(t){
+  showDialog(`<h3>${t?'✏️ Editar plantilla':'➕ Nueva plantilla'}</h3>
+    <form class="tpl-form" id="tplForm">
+      <input id="tplName" maxlength="40" placeholder="Nombre del botón (p. ej. 🎫 Revisar ticket)" value="${esc(t?.name||'')}" required>
+      <textarea id="tplText" maxlength="2000" placeholder="Instrucción para Claude. Usa {campo} para lo que cambia cada vez." required>${esc(t?.text||'')}</textarea>
+      <div class="tts-row"><label for="tplSend">Enviar directo al tocarla (sin editar)</label><input type="checkbox" id="tplSend" ${t?.send?'checked':''}></div>
+      <p class="note" id="tplHint"></p><p class="note warn" id="tplErr"></p>
+      <div class="sec-actions"><button type="submit" id="tplSave">Guardar</button><button type="button" id="tplCancel">Cancelar</button></div>
+    </form>`);
+  const hint=()=>{const f=FIELD_RE.test($('#tplText').value);$('#tplSend').disabled=f;if(f)$('#tplSend').checked=false;
+    $('#tplHint').textContent=f?'Tiene campos por completar: se insertará en el cuadro, no se envía directo.':''};
+  $('#tplText').oninput=hint; hint();
+  $('#tplCancel').onclick=()=>templatesDialog();
+  $('#tplForm').onsubmit=async e=>{e.preventDefault();
+    const r=await api('/api/cmd',{cmd:'template_save',id:t?.id||'',name:$('#tplName').value,text:$('#tplText').value,send:$('#tplSend').checked});
+    if(r.ok){templates=r.templates;templatesDialog();paintTemplates()}else $('#tplErr').textContent=r.error||'Error'};
+}
+$('#send').onclick=()=>send();
+
+// ---------- respuestas habladas (síntesis de voz del dispositivo, solo voces locales) ----------
+const synth=window.speechSynthesis;
+const TTS_MAX=1500;   // más largo: se lee el comienzo y se avisa que sigue en pantalla
+// Solo voces que se generan en el dispositivo: las «remotas» (p. ej. «Google español» en Chrome)
+// envían el texto a servidores externos.
+function ttsVoices(){
+  const all=(synth&&synth.getVoices())||[], local=all.filter(v=>v.localService);
+  const es=local.filter(v=>/^es/i.test(v.lang));
+  return es.length?es:local;
+}
+function ttsVoice(){const vs=ttsVoices();return vs.find(v=>v.voiceURI===prefs.ttsVoice)||vs.find(v=>/^es[-_]?(cl|419|mx|us)/i.test(v.lang))||vs[0]||null}
+function speechText(t){
+  t=String(t||'')
+    .replace(/```[\s\S]*?```/g,' (bloque de código). ')
+    .replace(/`([^`]*)`/g,'$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g,'')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g,'$1')
+    .replace(/https?:\/\/\S+/g,'enlace')
+    .replace(/^\s{0,3}#{1,6}\s*/gm,'')
+    .replace(/^\s*[-*+]\s+/gm,'')
+    .replace(/^\s*>\s?/gm,'')
+    .replace(/^[ \t]*\|?[-:| ]+\|[-:| ]*$/gm,'')
+    .replace(/^[ \t]*\|(.*?)\|?[ \t]*$/gm,'$1').replace(/[ \t]*\|[ \t]*/g,', ')
+    .replace(/(\*\*|~~)(\S[\s\S]*?)\1/g,'$2').replace(/\*(\S[^*\n]*?)\*/g,'$1')   // sin tocar los _ de nombres_de_variables
+    .replace(/\s*\n+\s*/g,'. ').replace(/(\.\s*){2,}/g,'. ').replace(/\s{2,}/g,' ').trim();
+  if(t.length>TTS_MAX)t=t.slice(0,t.lastIndexOf(' ',TTS_MAX))+'… La respuesta continúa en pantalla.';
+  return t;
+}
+function ttsChunks(t){   // frases cortas: Chrome corta las locuciones largas a los ~15 s
+  const out=[];let cur='';
+  const parts=(t.match(/[^.!?;:]+[.!?;:]*\s*/g)||[t]).flatMap(p=>p.length>220?p.match(/\S+\s*/g):[p]);
+  for(const part of parts){
+    if((cur+part).length>220&&cur){out.push(cur.trim());cur=''}
+    cur+=part;
+  }
+  if(cur.trim())out.push(cur.trim());
+  return out;
+}
+function ttsPaint(){
+  const b=$('#ttsBtn'); if(!b)return;
+  b.hidden=!synth; b.classList.toggle('on',!!prefs.tts); b.textContent=prefs.tts?'🔊':'🔇';
+  b.setAttribute('aria-pressed',prefs.tts?'true':'false');
+  b.title=prefs.tts?'Respuestas habladas: activadas (toca para apagar)':'Respuestas habladas: apagadas (toca para activar)';
+}
+function ttsTalking(){$('#ttsBtn')?.classList.toggle('talking',!!(synth&&(synth.speaking||synth.pending)))}
+function ttsSpeak(text,force){
+  if(!synth||!(prefs.tts||force))return;
+  const v=ttsVoice(); if(!v){toast('No hay voces locales en este dispositivo');return}
+  for(const c of ttsChunks(text)){
+    const u=new SpeechSynthesisUtterance(c); u.voice=v; u.lang=v.lang; u.rate=+prefs.ttsRate||1;
+    u.onstart=u.onend=u.onerror=ttsTalking; synth.speak(u);
+  }
+  ttsTalking();
+}
+function ttsSay(md){const t=speechText(md);if(t)ttsSpeak(t)}
+function ttsNotice(t){if(prefs.ttsDecisions)ttsSpeak(t)}
+function ttsStop(){if(synth){synth.cancel();ttsTalking()}}
+function ttsToggle(on){
+  prefs.tts=on; savePrefs(); ttsPaint();
+  if(on)ttsSpeak('Respuestas habladas activadas.',true);   // dentro del toque: iPhone exige un gesto para hablar
+  else ttsStop();
+}
+if(synth){synth.addEventListener?.('voiceschanged',()=>{ttsPaint()});ttsPaint()}
+$('#ttsBtn').onclick=()=>ttsToggle(!prefs.tts);
+
+// ---------- voz ----------
+// Whisper: el navegador graba y el audio va solo a tu PC. Navegador: Google/Apple transcriben (sale a internet).
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const MAX_REC_MS=120000;
+let rec=null;   // grabación en curso: {kind, stop(), t0, timer}
+const canRecord=()=>isSecureContext&&!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+function voiceKind(){
+  const srv=status.voice||'off';
+  if(srv==='off')return null;
+  if(prefs.voice==='browser'&&SR)return 'browser';
+  if(srv==='whisper'&&canRecord())return 'whisper';
+  if(prefs.voice!=='whisper'&&SR&&isSecureContext)return 'browser';   // «Solo Whisper» nunca usa el navegador
+  return null;
+}
+function paintMic(){
+  const b=$('#mic'); b.hidden=(status.voice||'off')==='off';
+  b.title=voiceKind()==='browser'?'Dictar (navegador: el audio sale a internet)':'Dictar por voz (se transcribe en tu PC)';
+}
+function insertText(t,base){
+  t=(t||'').trim(); const b=base??input.value;
+  input.value=t?(b&&!/\s$/.test(b)?b+' ':b)+t:b; autosize();
+}
+function recTick(){
+  const secs=Math.floor((Date.now()-rec.t0)/1000);
+  input.placeholder=`🔴 Grabando ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
+  if(Date.now()-rec.t0>MAX_REC_MS)rec.stop();
+}
+function recEnd(){
+  if(rec)clearInterval(rec.timer); rec=null; paintTemplates();
+  $('#mic').classList.remove('rec'); $('#mic').textContent='🎤';
+  input.placeholder='Escribe una tarea…';
+}
+function recStart(kind,stop){
+  rec={kind,stop,t0:Date.now(),timer:null}; rec.timer=setInterval(recTick,500); recTick(); paintTemplates();
+  const b=$('#mic'); b.classList.add('rec'); b.textContent='⏹';
+}
+async function startWhisper(){
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+  catch(e){toast('Sin acceso al micrófono: revisa el permiso del navegador');return}
+  const type=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus','audio/webm'].find(t=>MediaRecorder.isTypeSupported?.(t))||'';
+  const mr=new MediaRecorder(stream,type?{mimeType:type}:undefined), chunks=[];
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  mr.onstop=async()=>{
+    stream.getTracks().forEach(t=>t.stop()); recEnd();
+    const blob=new Blob(chunks,{type:(mr.mimeType||type||'audio/webm').split(';')[0]});
+    if(blob.size<1000){toast('No se grabó audio');return}
+    const b=$('#mic'); b.classList.add('busy'); b.disabled=true; b.textContent='⏳'; input.placeholder='Transcribiendo en tu PC…';
+    try{
+      const r=await fetch('/api/transcribe',{method:'POST',headers:{'X-CR':'1','Content-Type':blob.type},body:blob});
+      const j=await r.json().catch(()=>({}));
+      if(r.ok){insertText(j.text);if(!j.text)toast('No se entendió nada; intenta de nuevo');input.focus()}
+      else toast(j.error||`Error ${r.status} al transcribir`);
+    }catch(_){toast('Sin conexión con el PC')}
+    finally{b.classList.remove('busy');b.disabled=false;b.textContent='🎤';input.placeholder='Escribe una tarea…'}
+  };
+  mr.start(1000);
+  recStart('whisper',()=>{if(mr.state!=='inactive')mr.stop()});
+}
+function startBrowser(){
+  if(!prefs.voiceBrowserOk){
+    if(!confirm('El dictado del navegador envía tu voz a los servidores de Google o Apple para transcribirla.\n\nNo dictes información interna o confidencial. ¿Continuar?'))return;
+    prefs.voiceBrowserOk=true; savePrefs();
+  }
+  const r=new SR(), base=input.value; let finals='';
+  r.lang=navigator.language||'es-CL'; r.interimResults=true; r.continuous=true;
+  r.onresult=e=>{let tmp='';for(let i=e.resultIndex;i<e.results.length;i++){const x=e.results[i];
+    if(x.isFinal)finals+=x[0].transcript+' ';else tmp+=x[0].transcript}
+    insertText(finals+tmp,base)};
+  r.onerror=e=>{if(e.error!=='aborted'&&e.error!=='no-speech')toast('Dictado: '+e.error)};
+  r.onend=()=>{recEnd();input.focus()};
+  try{r.start()}catch(_){toast('No se pudo iniciar el dictado');return}
+  recStart('browser',()=>r.stop());
+}
+$('#mic').onclick=()=>{
+  if(rec){rec.stop();return}
+  const k=voiceKind();
+  if(k==='whisper')startWhisper();
+  else if(k==='browser')startBrowser();
+  else voiceDialog();
+};
+function ttsSection(){
+  if(!synth)return '<p class="note">Este navegador no puede leer en voz alta.</p>';
+  const vs=ttsVoices(), cur=ttsVoice();
+  if(!vs.length)return '<p class="note warn">No hay voces locales en este dispositivo. Las voces en línea no se usan, porque enviarían el texto a servidores externos.</p>';
+  return `<p class="note">Lee en voz alta las respuestas de Claude en este dispositivo. Se activa y apaga con 🔇/🔊 arriba. Solo se usan voces del dispositivo: el texto no sale de tu red.</p>
+    <div class="tts-row"><label for="ttsOn">Activadas</label><input type="checkbox" id="ttsOn" ${prefs.tts?'checked':''}></div>
+    <div class="tts-row"><label for="ttsVoiceSel">Voz</label><select id="ttsVoiceSel">${vs.map(v=>`<option value="${esc(v.voiceURI)}" ${cur&&v.voiceURI===cur.voiceURI?'selected':''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select></div>
+    <div class="tts-row"><label for="ttsRate">Velocidad <span id="ttsRateV">${(+prefs.ttsRate).toFixed(1)}×</span></label><input type="range" id="ttsRate" min="0.7" max="1.8" step="0.1" value="${prefs.ttsRate}"></div>
+    <div class="tts-row"><label for="ttsDec">Avisar también las decisiones y preguntas</label><input type="checkbox" id="ttsDec" ${prefs.ttsDecisions?'checked':''}></div>
+    <div class="sec-actions"><button id="ttsTest">▶️ Probar</button></div>`;
+}
+function ttsBind(){
+  const on=$('#ttsOn'); if(!on)return;
+  on.onchange=()=>ttsToggle(on.checked);
+  $('#ttsVoiceSel').onchange=e=>{prefs.ttsVoice=e.target.value;savePrefs()};
+  $('#ttsRate').oninput=e=>{prefs.ttsRate=+e.target.value;$('#ttsRateV').textContent=prefs.ttsRate.toFixed(1)+'×';savePrefs()};
+  $('#ttsDec').onchange=e=>{prefs.ttsDecisions=e.target.checked;savePrefs()};
+  $('#ttsTest').onclick=()=>{ttsStop();ttsSpeak('Hola, así suenan las respuestas de Claude.',true)};
+}
+function voiceDialog(){
+  const srv=status.voice||'off', secure=isSecureContext;
+  const estado=srv==='whisper'?'✅ Whisper instalado en tu PC: el audio se transcribe ahí y no sale a internet.'
+    :srv==='browser'?'Whisper no está instalado en el PC. Se puede usar el dictado del navegador (el audio pasa por Google o Apple).'
+    :'La voz está desactivada en el servidor (VOICE_ENGINE).';
+  const opts=[['auto','Automático','Whisper si está instalado; si no, el navegador'],
+              ['whisper','Solo Whisper','Nunca envía audio fuera de tu red'],
+              ['browser','Navegador','Google o Apple transcriben: el audio sale a internet']];
+  showDialog(`<h3>🎤 Voz</h3><p class="note">${estado}</p>
+    ${secure?'':'<p class="note warn">El micrófono necesita HTTPS: configura los certificados (README, «Notificaciones en el teléfono»).</p>'}
+    ${srv==='off'?'':'<h4>Qué usar en este dispositivo</h4><div id="voiceOpts"></div>'}
+    <p class="note">Toca 🎤, habla y vuelve a tocar para terminar (máximo 2 min). El texto aparece en el cuadro para que lo revises antes de enviar.</p>
+    <h4>🔊 Respuestas habladas</h4>${ttsSection()}`);
+  ttsBind();
+  const box=$('#voiceOpts'); if(!box)return;
+  opts.forEach(([k,l,d])=>{const r=document.createElement('button');r.className='mode-opt'+(prefs.voice===k?' on':'');
+    r.dataset.voice=k; r.innerHTML=`${l}<small>${d}${k==='browser'&&!SR?' · no disponible en este navegador':''}</small>`;
+    r.disabled=k==='browser'&&!SR;
+    r.onclick=()=>{prefs.voice=k;if(k==='whisper')prefs.voiceBrowserOk=false;savePrefs();paintMic();voiceDialog()};
+    box.appendChild(r)});
+}
+$('#stopBtn').onclick=()=>api('/api/cmd',{cmd:'stop'});
+$('#menuBtn').onclick=()=>$('#menu').classList.toggle('open');
+
+document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
+  $('#menu').classList.remove('open');
+  const cmd=b.dataset.cmd;
+  if(cmd==='new'){if(confirm('¿Empezar una sesión nueva?'))api('/api/cmd',{cmd})}
+  else if(cmd==='status'){const j=await api('/api/cmd',{cmd});if(j.status){const s=j.status;
+    showDialog(`<h3>ℹ️ Estado</h3><p>📁 <code>${esc(s.cwd)}</code></p><p>🧵 ${esc(s.session||'sesión nueva')}</p>
+      <p>${s.busy?'⏳ Trabajando':'💤 Libre'} · decisiones pendientes: ${s.pending}</p><p>Gateway: <code>${esc(s.gateway)}</code></p>
+      <p>Aprobadas siempre: ${esc(s.always.join(', ')||'—')}</p>`)}}
+  else if(cmd==='sessions'){const j=await api('/api/cmd',{cmd});const list=j.sessions||[];
+    showDialog('<h3>🧵 Sesiones recientes</h3>'+(list.length?'':'<p>No hay sesiones guardadas para esta carpeta.</p>'));
+    list.forEach(s=>{const r=document.createElement('button');r.className='row';
+      r.innerHTML=`${esc(s.title)}<small>${esc(s.id.slice(0,8))} · ${new Date(s.mtime*1000).toLocaleString()}</small>`;
+      r.onclick=()=>{dlg.close();api('/api/cmd',{cmd:'resume',arg:s.id})};$('#dlgBody').appendChild(r)})}
+  else if(cmd==='cd'){const j=await api('/api/cmd',{cmd});
+    const p=prompt('Carpeta de trabajo (dentro de: '+(j.roots||[]).join(', ')+')',j.cwd||'');
+    if(p&&p!==j.cwd)api('/api/cmd',{cmd:'cd',arg:p})}
+  else if(cmd==='alerts')alertsDialog();
+  else if(cmd==='voice')voiceDialog();
+  else if(cmd==='templates')templatesDialog();
+  else if(cmd==='jira')jiraDialog();
+  else if(cmd==='rules')rulesDialog();
+  else if(cmd==='security')securityDialog();
+  else if(cmd==='logout'){await fetch('/logout',{method:'POST'});location.reload()}
+});
+function showDialog(html){$('#dlgBody').innerHTML=html;dlg.showModal();dlg.scrollTop=0}
+$('#dlgX').onclick=$('#dlgClose').onclick=()=>dlg.close();
+// Tocar fuera del diálogo (en el fondo oscuro) también lo cierra
+dlg.addEventListener('click',e=>{if(e.target!==dlg)return;const r=dlg.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dlg.close()});
+</script>
+</body>
+</html>

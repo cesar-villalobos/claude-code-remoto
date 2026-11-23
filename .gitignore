@@ -1,0 +1,23 @@
+# Secretos y configuración local
+.env
+*.pem
+*.key
+*.crt
+certs/
+
+# Estado local (token de acceso, sesión)
+.claude-remoto.json
+
+# Palabras que no pueden salir en el repo público (scripts/publicar.py)
+.publicar-prohibido
+
+# Python
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Sistema
+.DS_Store
+Thumbs.db
