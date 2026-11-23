@@ -12,7 +12,8 @@ import ssl
 import sys
 from pathlib import Path
 
-from .agent import AGENTS
+from . import __version__, push, updates
+from .agent import AGENTS, emit_status
 from .auth import is_local
 from .config import (
     BIND_HOST,
@@ -69,7 +70,7 @@ def print_banner(show_token: bool | None = None) -> None:
         f"{scheme}://<IP-de-este-equipo>:{PORT}{tok}"
     ]
     print("\n" + "=" * 64)
-    print(" Claude Remoto (LAN) listo. Abre en el celular (misma red Wi-Fi o por la VPN):")
+    print(f" Claude Remoto {__version__} (LAN) listo. Abre en el celular (misma red Wi-Fi o por la VPN):")
     for u in private:
         print("   ", u)
     # En el propio equipo, localhost evita que el navegador pase por el proxy corporativo
@@ -101,10 +102,16 @@ async def main() -> None:
                              "Para ver el enlace y el QR: python server.py --mostrar-acceso") from None
         raise
     print_banner()
+    checker = asyncio.create_task(updates.loop(emit_status))   # aviso de versión nueva (UPDATE_CHECK=0 lo apaga)
+    if push.PUSH_ENABLED:
+        HUB.listeners.append(push.on_event)   # avisos con la app cerrada
+    elif not push.AVAILABLE:
+        log.info("Web Push desactivado: %s", push.DISABLED_REASON)
     async with server:
         try:
             await server.serve_forever()
         finally:
+            checker.cancel()
             for agent in AGENTS:
                 await agent.stop()
                 await agent.close()
@@ -136,6 +143,7 @@ def log_to_file(path: str) -> None:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="server.py", description="Claude Remoto: control de Claude Code desde el celular.")
+    p.add_argument("--version", action="version", version=f"Claude Remoto {__version__}")
     p.add_argument("--mostrar-acceso", action="store_true", help="muestra el enlace con token y el QR, sin iniciar")
     p.add_argument("--instalar-inicio", action="store_true", help="arranque automático al iniciar sesión")
     p.add_argument("--quitar-inicio", action="store_true", help="quita el arranque automático")

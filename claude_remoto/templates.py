@@ -26,6 +26,11 @@ def version() -> str:
     return _version
 
 
+def touch() -> None:
+    """Avisa a los dispositivos que la lista cambió (p. ej. tras importar un respaldo)."""
+    _changed()
+
+
 def _changed() -> None:
     global _version
     _version = secrets.token_hex(4)

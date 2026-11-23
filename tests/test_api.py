@@ -46,13 +46,14 @@ def test_proteccion_csrf(srv):
 
 
 def test_flujo_completo_permiso_y_pregunta(srv):
-    assert srv.api("/api/send", {"text": "revisa ABC-123"}) == (200, {"ok": True})
+    assert srv.api("/api/send", {"text": "revisa ABC-123"}) == (200, {"ok": True, "queued": False})
     perm, _ = srv.wait_for(lambda e: e["type"] == "perm")
     assert perm["title"] == "💻 Ejecutar comando" and perm["detail"] == "pytest -q"
 
-    # mientras espera la decisión no acepta otra tarea
-    status, body = srv.api("/api/send", {"text": "otra"})
-    assert status == 409
+    # mientras espera la decisión, otra tarea va a la cola (y aquí se quita)
+    assert srv.api("/api/send", {"text": "otra"}) == (200, {"ok": True, "queued": True})
+    queued, _ = srv.wait_for(lambda e: e["type"] == "queued")
+    assert srv.api("/api/cmd", {"cmd": "queue_remove", "arg": queued["qid"]})[0] == 200
 
     assert srv.api("/api/decide", {"ref": perm["ref"], "choice": "y"})[0] == 200
     q, _ = srv.wait_for(lambda e: e["type"] == "question")

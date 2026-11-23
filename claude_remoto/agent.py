@@ -26,12 +26,14 @@ from claude_agent_sdk.types import (
     ToolPermissionContext,
 )
 
+from . import __version__, budget, changes, usage
 from .attachments import content_blocks
 from .audit import REQUEST, audit
 from .config import (
     AUTO_APPROVE,
     AUTO_APPROVE_PREFIXES,
     CA_CERT,
+    CHANGES_SUMMARY,
     CORP_CA_BUNDLE,
     CORP_PROXY,
     DEFAULT_MODE,
@@ -39,6 +41,8 @@ from .config import (
     GATEWAY_VARS,
     MCP_SERVERS,
     MODEL,
+    MODEL_LABELS,
+    MODELS,
     NO_PROXY,
     PERMISSION_MODES,
     STREAM_INTERVAL,
@@ -54,6 +58,7 @@ from .jira import config as jira_config
 from .rules import DEFAULT_RULES, find_rule, rule_label, suggest_rule
 from .state import STATE, save_state
 from .templates import version as tpl_version
+from .updates import update_info
 from .voice import engine as voice_engine
 
 try:  # texto en tiempo real (SDK reciente); sin él la app funciona igual, sin streaming
@@ -81,6 +86,10 @@ def claude_env() -> dict[str, str]:
     return env
 
 
+def model_label(value: str) -> str:
+    return MODEL_LABELS.get(value, value)
+
+
 MAX_COMMANDS = 300
 
 
@@ -103,6 +112,7 @@ def normalize_commands(raw: list[Any]) -> list[dict[str, str]]:
 
 MAX_TABS = int(os.getenv("MAX_SESSIONS", "6"))   # cada sesión mantiene su propio proceso de Claude Code
 MAX_TAB_NAME = 30
+MAX_QUEUE = 10   # mensajes en cola por sesión
 
 
 def shared_rules() -> list[dict[str, Any]]:
@@ -123,11 +133,15 @@ class Agent:
         self.client: ClaudeSDKClient | None = None
         self.closed = False
         self.finishing = False
+        self.queue: list[dict[str, Any]] = []   # mensajes enviados mientras trabajaba
+        self.tracker: changes.Tracker | None = None   # archivos que cambia la tarea en curso
         self.commands_cache: list[dict[str, str]] | None = None  # comandos «/» de esta conexión
         self.lock = asyncio.Lock()
         self.task: asyncio.Task | None = None
         self.always_allow: set[str] = set()
         self.rules: list[dict[str, Any]] = shared_rules()
+        saved_model = tab.get("model") or ""
+        self.model: str = saved_model if saved_model in MODELS else ""  # "" = predeterminado
         saved_mode = tab.get("mode")
         self.mode: str = saved_mode if saved_mode in PERMISSION_MODES else DEFAULT_MODE
         self.started_at: float | None = None  # para el cronómetro de la animación
@@ -193,7 +207,8 @@ class Agent:
         return bool(self.task and not self.task.done()) and not self.finishing
 
     def tab_state(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name, "cwd": self.cwd, "session_id": self.session_id, "mode": self.mode}
+        return {"id": self.id, "name": self.name, "cwd": self.cwd, "session_id": self.session_id, "mode": self.mode,
+                "model": self.model}
 
     def persist(self) -> None:
         AGENTS.persist()
@@ -209,7 +224,9 @@ class Agent:
             "pending": sum(1 for p in PENDING.values() if p.tab == self.id),
             "always": sorted(self.always_allow),
             "mode": self.mode,
+            "model": self.model or "default",
             "since": self.started_at,  # inicio de la tarea actual (epoch del servidor)
+            "queued": len(self.queue),
         }
 
     # -- permisos ---------------------------------------------------------
@@ -283,6 +300,8 @@ class Agent:
         data = hook_input.get("tool_input") or {}
         rule = find_rule(self.rules, "deny", tool_name, data, self.cwd)
         if not rule:
+            if self.tracker:   # contenido original, para el resumen de cambios al terminar
+                await asyncio.to_thread(self.tracker.before_tool, tool_name, data)
             return {}
         self.emit("info", text=f"⛔ Bloqueado por regla: {tool_trace(tool_name, data)} · {rule_label(rule)}")
         audit("blocked", tool=tool_name, target=tool_trace(tool_name, data), rule=rule_label(rule))
@@ -356,8 +375,9 @@ class Agent:
         )
         if self.session_id:
             kwargs["resume"] = self.session_id
-        if MODEL:
-            kwargs["model"] = MODEL
+        model = self.model if self.model not in ("", "default") else MODEL
+        if model:
+            kwargs["model"] = model
         return ClaudeAgentOptions(**kwargs)
 
     async def commands(self) -> list[dict[str, str]]:
@@ -382,6 +402,7 @@ class Agent:
             self.client = None
 
     async def stop(self) -> None:
+        self.clear_queue("⏹️ Quitado: se detuvo la tarea")   # detener = retomar el control
         if self.client:
             try:
                 await self.client.interrupt()
@@ -408,6 +429,19 @@ class Agent:
             self.emit("info", text=f"Modo: {PERMISSION_MODES[mode]}")
         emit_status()
 
+    async def set_model(self, model: str) -> None:
+        """Cambia el modelo de esta sesión; si está conectada, también en caliente."""
+        self.model = "" if model == "default" else model
+        self.persist()
+        if self.client is not None:
+            try:
+                await self.client.set_model(self.model or MODEL)
+            except Exception:  # noqa: BLE001 — se aplicará al abrir la próxima sesión
+                log.exception("No se pudo cambiar el modelo en la sesión actual")
+        audit("model", model=model, tab=self.name)
+        self.emit("info", text=f"🧠 Modelo: {model_label(model)}")
+        emit_status()
+
     async def reset(self, *, session_id: str | None = None, cwd: str | None = None) -> None:
         await self.stop()
         await self.close()
@@ -417,14 +451,70 @@ class Agent:
         self.always_allow.clear()
         self.persist()
 
-    def submit(self, prompt: str, images: list[dict[str, Any]] | None = None) -> bool:
+    def submit(self, prompt: str, images: list[dict[str, Any]] | None = None) -> str:
+        """«started», «queued» (Claude está trabajando: va a la cola), «full» (cola llena)
+        o «limit» (se alcanzó el límite de gasto mensual)."""
+        images = images or []
+        if budget.blocked():
+            return "limit"
+        thumbs = [i["thumb"] for i in images]
         if self.busy:
-            return False
-        thumbs = [i["thumb"] for i in images or []]
-        self.emit("user", text=prompt, **({"images": thumbs} if images else {}))   # en el historial: solo miniaturas
+            if len(self.queue) >= MAX_QUEUE:
+                return "full"
+            qid = secrets.token_hex(4)
+            self.queue.append({"qid": qid, "text": prompt, "images": images})
+            self.emit("queued", qid=qid, text=prompt, **({"images": thumbs} if images else {}))
+            emit_status()
+            return "queued"
+        self.start(prompt, images)
+        return "started"
+
+    def start(self, prompt: str, images: list[dict[str, Any]], qid: str | None = None) -> None:
+        thumbs = [i["thumb"] for i in images]
+        # en el historial: solo miniaturas; «qid» indica que salió de la cola
+        self.emit("user", text=prompt, **({"images": thumbs} if images else {}), **({"qid": qid} if qid else {}))
         self.finishing = False
-        self.task = asyncio.create_task(self.run(prompt, images or []))
+        self.task = asyncio.create_task(self.run(prompt, images))
+
+    def next_from_queue(self) -> None:
+        """Al terminar una tarea, sigue con el primer mensaje de la cola."""
+        if self.closed or not self.queue:
+            return
+        if self.task and not self.task.done():   # todavía cerrando la anterior
+            asyncio.get_running_loop().call_later(0.05, self.next_from_queue)
+            return
+        if budget.blocked():   # se alcanzó el límite con la tarea anterior: no se inicia lo que quedó en cola
+            self.clear_queue("⛔ No se envió: se alcanzó el límite de gasto mensual")
+            return
+        item = self.queue.pop(0)
+        self.start(item["text"], item["images"], qid=item["qid"])
+
+    def unqueue(self, qid: str, label: str) -> bool:
+        item = next((q for q in self.queue if q["qid"] == qid), None)
+        if item is None:
+            return False
+        self.queue.remove(item)
+        self.emit("unqueued", qid=qid, label=label)
+        emit_status()
         return True
+
+    def clear_queue(self, label: str) -> None:
+        for item in list(self.queue):
+            self.unqueue(item["qid"], label)
+
+    async def emit_changes(self) -> None:
+        """Al terminar (bien, con error o detenida): archivos que cambiaron en esta tarea."""
+        tracker, self.tracker = self.tracker, None
+        if not tracker:
+            return
+        try:
+            summary = await asyncio.to_thread(tracker.summary)
+        except Exception:  # noqa: BLE001
+            log.exception("No se pudo armar el resumen de cambios")
+            return
+        if summary:
+            self.emit("changes", **summary)
+            audit("changes", tab=self.name, files=summary["total"], add=summary["add"], removed=summary["del"])
 
     async def run(self, prompt: str, images: list[dict[str, Any]] | None = None) -> None:
         # La tarea corre en su propio contexto: lo que haga Claude no se atribuye al dispositivo
@@ -433,6 +523,7 @@ class Agent:
         async with self.lock:
             self.started_at = time.time()
             emit_status()
+            self.tracker = await asyncio.to_thread(changes.Tracker, self.cwd) if CHANGES_SUMMARY else None
             try:
                 if self.client is None:
                     self.client = ClaudeSDKClient(options=self.options())
@@ -463,8 +554,20 @@ class Agent:
                         if getattr(msg, "session_id", None):
                             self.session_id = msg.session_id
                             self.persist()
+                        u = getattr(msg, "usage", None) or {}
+                        models = list(getattr(msg, "model_usage", None) or {})
+                        before = budget.info()
+                        rec = usage.record(tab=self.name, tab_id=self.id, cost=getattr(msg, "total_cost_usd", None),
+                                           usage=u, duration=self.elapsed(), turns=getattr(msg, "num_turns", None),
+                                           model=models[0] if models else (getattr(self, "model", "") or MODEL or "default"),
+                                           ok=not msg.is_error)
                         self.emit("done", ok=not msg.is_error, cost=getattr(msg, "total_cost_usd", None),
-                                 duration=self.elapsed())  # para avisar al terminar tareas largas
+                                  tokens=rec["in"] + rec["out"],
+                                  duration=self.elapsed())  # para avisar al terminar tareas largas
+                        notice = budget.crossed(before, budget.info())
+                        if notice:
+                            HUB.emit("info", text=notice)   # en todas las pestañas
+                            emit_status()
             except asyncio.CancelledError:
                 self.emit("info", text="⏹️ Interrumpido.")
                 raise
@@ -474,9 +577,12 @@ class Agent:
                 await self.close()
             finally:
                 self.close_streams()
+                await self.emit_changes()
                 self.started_at = None
                 self.finishing = True
                 emit_status()
+                if self.queue:
+                    asyncio.get_running_loop().call_soon(self.next_from_queue)
 
 
 
@@ -548,6 +654,10 @@ def global_status(tab_id: Any = None) -> dict[str, Any]:
         "tab": agent.id,
         "tabs": [a.status() for a in AGENTS],
         "max_tabs": MAX_TABS,
+        "models": [{"value": m, "label": model_label(m)} for m in MODELS],
+        "version": __version__,
+        "update": update_info(),   # versión nueva disponible, si la hay
+        "budget": budget.info(),   # límite de gasto mensual
         "gateway": gateway_host() or "settings de Claude Code",
         "voice": voice_engine(),  # whisper | browser | off
         "tpl": tpl_version(),     # versión de las plantillas: si cambia, la interfaz las recarga

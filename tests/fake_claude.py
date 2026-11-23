@@ -34,7 +34,9 @@ def tool(name: str, data: dict) -> AssistantMessage:
 
 def result(session_id: str) -> ResultMessage:
     return ResultMessage(subtype="success", duration_ms=1, duration_api_ms=1, is_error=False,
-                         num_turns=1, session_id=session_id, total_cost_usd=0.0012)
+                         num_turns=1, session_id=session_id, total_cost_usd=0.0012,
+                         usage={"input_tokens": 1200, "output_tokens": 300, "cache_read_input_tokens": 5000,
+                                "cache_creation_input_tokens": 0})
 
 
 class FakeClient:
@@ -42,7 +44,10 @@ class FakeClient:
         self.o = options
 
     async def connect(self):
-        print(f"FAKE connect permission_mode={self.o.permission_mode}", flush=True)
+        print(f"FAKE connect permission_mode={self.o.permission_mode} model={self.o.model}", flush=True)
+
+    async def set_model(self, model):
+        print(f"FAKE set_model {model}", flush=True)
 
     async def get_server_info(self):
         print("FAKE get_server_info", flush=True)
@@ -96,6 +101,27 @@ class FakeClient:
             msg = getattr(r, "message", "")
             yield text(f"Plan: {type(r).__name__}" + (f" | {msg}" if msg else ""))
             yield result("55555555-5555-5555-5555-555555555555")
+            return
+        if SCENARIO == "cambios":
+            # Cambia archivos de verdad: con herramientas (pasan por el hook) y «con un comando» (directo)
+            cwd = Path(self.o.cwd)
+            app = cwd / "app.py"
+            r = await self.use_tool("Edit", {"file_path": str(app), "old_string": "return 1", "new_string": "return 2"})
+            if type(r).__name__ == "PermissionResultAllow":
+                app.write_text(app.read_text().replace("return 1", "return 2"))
+            yield tool("Edit", {"file_path": str(app)})
+            r = await self.use_tool("Write", {"file_path": str(cwd / "nuevo.py"), "content": "x = 1\n"})
+            if type(r).__name__ == "PermissionResultAllow":
+                (cwd / "nuevo.py").write_text("x = 1\n")
+            yield tool("Write", {"file_path": str(cwd / "nuevo.py")})
+            await self.use_tool("Bash", {"command": "rm viejo.txt && sed -i s/a/b/ conf.ini"})
+            if (cwd / "viejo.txt").exists():
+                (cwd / "viejo.txt").unlink()
+            if (cwd / "conf.ini").exists():
+                (cwd / "conf.ini").write_text((cwd / "conf.ini").read_text().replace("a", "b"))
+            (cwd / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\0\0binario")
+            yield text("Cambios hechos")
+            yield result("77777777-7777-7777-7777-777777777777")
             return
         if SCENARIO == "edit":
             # Edita un archivo real de la carpeta de trabajo (para el diff) y crea uno nuevo grande
