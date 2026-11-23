@@ -39,6 +39,7 @@ class Hub:
         self.trimmed_upto = 0  # id del último evento descartado del historial
         self._changed = asyncio.Event()
         self._save_pending = False
+        self.listeners: list = []   # funciones que reciben cada evento del historial (p. ej. Web Push)
 
     def emit(self, type_: str, **data: Any) -> dict[str, Any]:
         self.seq += 1
@@ -48,6 +49,11 @@ class Hub:
             self.history.append(ev)
             self.trim(ev.get("tab"))
             self.schedule_save()
+            for fn in self.listeners:
+                try:
+                    fn(ev)
+                except Exception:  # noqa: BLE001 — un aviso que falla no detiene el chat
+                    log.exception("Fallo en un oyente de eventos")
         for q in list(self.clients):
             if q.qsize() > SSE_QUEUE_MAX:
                 # Cliente que no consume (conexión muerta): se le desconecta y, al
@@ -121,6 +127,10 @@ class Hub:
         self.trimmed_upto = self.history[0]["id"] - 1 if self.history else self.seq
         for tab in {e.get("tab") for e in self.history}:
             self.trim(tab)
+        done_q = {e.get("qid") for e in self.history if e.get("type") in ("unqueued", "user") and e.get("qid")}
+        for e in [e for e in self.history if e.get("type") == "queued" and e.get("qid") not in done_q]:
+            self.emit("unqueued", qid=e["qid"], label="⚠️ No se envió: el servidor se reinició",
+                      **({"tab": e["tab"]} if e.get("tab") else {}))
         decided = {e.get("ref") for e in self.history if e.get("type") == "decided"}
         for e in [e for e in self.history if e.get("type") in ("perm", "question") and e.get("ref") not in decided]:
             self.emit("decided", ref=e["ref"], label="⚠️ Expirada: el servidor se reinició",

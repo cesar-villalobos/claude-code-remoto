@@ -18,6 +18,37 @@ async function focusApp(ref) {
   await self.clients.openWindow('/' + (ref ? '#d-' + ref : ''));
 }
 
+// Web Push: avisos con la app cerrada. Son genéricos a propósito: pasan por el servicio de push
+// del navegador (en internet), así que solo dicen qué pasó; el detalle se ve al abrir la app.
+const PUSH_TEXT = {
+  decision: ['Claude necesita tu decisión', 'Abre Claude Remoto para revisarla.'],
+  done: ['Claude terminó una tarea', 'Abre Claude Remoto para ver el resultado.'],
+  error: ['Una tarea terminó con error', 'Abre Claude Remoto para ver qué pasó.'],
+  test: ['Claude Remoto · prueba', 'Así llegarán los avisos con la app cerrada.'],
+};
+self.addEventListener('push', (e) => {
+  let m = {};
+  try { m = e.data ? e.data.json() : {}; } catch (_) { /* aviso sin datos: genérico */ }
+  const [title, body] = PUSH_TEXT[m.k] || PUSH_TEXT.decision;
+  const tag = m.k === 'decision' && m.ref ? 'cr-' + m.ref : m.k === 'test' ? 'cr-test' : 'cr-done';
+  e.waitUntil(self.registration.showNotification(title, {
+    body, tag, renotify: true, icon: '/icon.svg', badge: '/icon.svg',
+    requireInteraction: m.k === 'decision', vibrate: [200, 100, 200],
+    data: { ref: m.k === 'decision' ? m.ref : '' },   // sin botones Aprobar/Rechazar: no se ve qué se aprueba
+  }));
+});
+// El navegador renovó la suscripción: se registra la nueva (la cookie de la sesión va con la petición)
+self.addEventListener('pushsubscriptionchange', (e) => {
+  e.waitUntil((async () => {
+    const opts = e.oldSubscription && e.oldSubscription.options;
+    const sub = e.newSubscription || (opts && await self.registration.pushManager.subscribe(opts));
+    if (!sub) return;
+    await fetch('/api/cmd', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CR': '1' },
+      body: JSON.stringify({ cmd: 'push_subscribe', sub: sub.toJSON() }) });
+  })());
+});
+
 self.addEventListener('notificationclick', (e) => {
   const n = e.notification;
   const { ref } = n.data || {};

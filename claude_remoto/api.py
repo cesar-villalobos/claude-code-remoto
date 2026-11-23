@@ -10,10 +10,11 @@ import secrets
 import time
 from typing import Any
 
-from . import attachments, jira
+from . import attachments, backup, budget, export_md, jira, push, usage
 from . import templates as tpl
 from .agent import (
     AGENTS,
+    MAX_QUEUE,
     MAX_TAB_NAME,
     MAX_TABS,
     emit_status,
@@ -22,7 +23,14 @@ from .agent import (
 )
 from .audit import AUDIT_FILE, REQUEST, audit, audit_tail
 from .claude_sessions import list_sessions, resolve_dir
-from .config import ALLOWED_ROOTS, MAX_COMMENT, PERMISSION_MODES, SESSION_DAYS, log
+from .config import (
+    ALLOWED_ROOTS,
+    MAX_COMMENT,
+    MODELS,
+    PERMISSION_MODES,
+    SESSION_DAYS,
+    log,
+)
 from .decisions import PENDING, resolve
 from .hub import HUB
 from .rules import RULE_KINDS, rule_label, validate_rule
@@ -54,11 +62,17 @@ async def api_send(body: dict[str, Any]) -> tuple[int, dict]:
     agent = AGENTS.get(body.get("tab"))
     if agent is None:
         return 404, {"error": "Esa sesión ya no existe"}
-    if not agent.submit(text, images):
-        return 409, {"error": "Claude sigue trabajando en esta sesión. Usa Detener para cortar."}
+    result = agent.submit(text, images)
+    if result == "full":
+        return 409, {"error": f"La cola de esta sesión está llena ({MAX_QUEUE} mensajes)"}
+    if result == "limit":
+        audit("task_blocked", reason="spend_limit", tab=agent.name)   # sin el texto
+        return 402, {"error": budget.blocked_message(), "budget": budget.info()}
     extra = {"images": len(images), "image_bytes": sum(i["bytes"] for i in images)} if images else {}
+    if result == "queued":
+        extra["queued"] = True
     audit("task", prompt=text[:1000], cwd=agent.cwd, tab=agent.name, **extra)
-    return 200, {"ok": True}
+    return 200, {"ok": True, "queued": result == "queued"}
 
 
 def clean_text(value: Any) -> tuple[str, str | None]:
@@ -208,6 +222,28 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
         audit("totp_disabled")
         HUB.emit("info", text="🔓 Segundo factor desactivado")
         return 200, {"ok": True}
+    elif cmd in ("push_status", "push_subscribe", "push_unsubscribe", "push_test"):
+        sid = ((REQUEST.get() or {}).get("session") or {}).get("id", "")
+        session = next((i for i in SESSIONS.data.values() if i["id"] == sid), None)
+        if not session:
+            return 401, {"error": "Sin sesión"}
+        if cmd == "push_subscribe":
+            err = push.subscribe(session, body.get("sub"))
+            if err:
+                return 400, {"error": err}
+            audit("push_subscribe", host=push.urlparse(body["sub"]["endpoint"]).hostname)
+        elif cmd == "push_unsubscribe":
+            if push.unsubscribe(sid):
+                audit("push_unsubscribe")
+        elif cmd == "push_test":
+            if not push.subscribed(sid):
+                return 400, {"error": "Este dispositivo no tiene los avisos activados"}
+            audit("push_test")
+            if not await push.notify("test", only=sid, force=True):
+                return 502, {"error": "El servicio de push no aceptó el aviso. ¿Este PC tiene salida a internet (o el proxy configurado)?"}
+        return 200, {"ok": True, "enabled": push.PUSH_ENABLED, "reason": push.DISABLED_REASON,
+                     "subscribed": push.subscribed(sid),
+                     "key": push.public_key() if push.PUSH_ENABLED else ""}
     elif cmd == "session_revoke":
         info = SESSIONS.revoke(arg)
         if not info:
@@ -300,6 +336,42 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
             audit("templates_reset")
         emit_status()   # la versión nueva hace que todos recarguen la lista
         return 200, {"ok": True, "templates": tpl.templates()}
+    elif cmd == "queue_remove":
+        if not agent.unqueue(arg, "✕ Quitado de la cola"):
+            return 404, {"error": "Ese mensaje ya no está en la cola"}
+        return 200, {"ok": True}
+    elif cmd == "model":
+        if arg not in MODELS:
+            return 400, {"error": "Modelo no permitido (ver CLAUDE_MODELS)"}
+        if (arg if arg != "default" else "") != agent.model:
+            await agent.set_model(arg)
+    elif cmd == "export_md":
+        events = [e for e in HUB.history if e.get("tab") == agent.id]
+        text = export_md.to_markdown(events, name=agent.name, cwd=agent.cwd,
+                                     tools=bool(body.get("tools", True)), decisions=bool(body.get("decisions", True)))
+        audit("export_md", tab=agent.name)   # sin el contenido
+        return 200, {"ok": True, "markdown": text,
+                     "filename": f"claude-{export_md.slug(agent.name)}-{time.strftime('%Y-%m-%d')}.md"}
+    elif cmd == "usage":
+        return 200, {**usage.summary(), "budget": budget.info()}
+    elif cmd == "budget_set":
+        info, err = budget.save(body.get("limit"), body.get("warn", 80))
+        if err:
+            return 400, {"error": err}
+        audit("budget_set", limit=info["limit"], warn=info["warn"])
+        HUB.emit("info", text=f"💲 Límite de gasto mensual: US${info['limit']:.2f}" if info["limit"]
+                 else "💲 Sin límite de gasto mensual")
+        emit_status()
+        return 200, {"ok": True, "budget": info}
+    elif cmd == "budget_override":
+        info = budget.allow_this_month()
+        audit("budget_override", month=info["month"], spent=info["spent"], limit=info["limit"])
+        HUB.emit("info", text=f"💲 Se continúa sobre el límite durante {info['month']}")
+        emit_status()
+        return 200, {"ok": True, "budget": info}
+    elif cmd == "backup_export":
+        audit("backup_export")
+        return 200, {"ok": True, "backup": backup.export_data()}
     elif cmd == "mode":
         if arg not in PERMISSION_MODES:
             return 400, {"error": "Modo no permitido"}
@@ -313,5 +385,18 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
     return 200, {"ok": True, "status": global_status(agent.id)}
 
 
-ROUTES = {"/api/send": api_send, "/api/decide": api_decide, "/api/cmd": api_cmd}
+async def api_backup(body: dict[str, Any]) -> tuple[int, dict]:
+    """Importa un respaldo. Ruta aparte porque admite cuerpos más grandes que /api/cmd."""
+    result, err = backup.import_data(body.get("data"), list(body.get("sections") or []),
+                                     str(body.get("mode") or "merge"))
+    if err:
+        return 400, {"error": err}
+    added = ", ".join(f"{k}: {v}" for k, v in result["added"].items()) or "nada"
+    audit("backup_import", mode=body.get("mode"), added=added, skipped=len(result["skipped"]))
+    HUB.emit("info", text=f"💾 Configuración importada ({added})")
+    emit_status()
+    return 200, {"ok": True, **result, "status": global_status(body.get("tab"))}
+
+
+ROUTES = {"/api/send": api_send, "/api/decide": api_decide, "/api/cmd": api_cmd, "/api/backup": api_backup}
 

@@ -2,6 +2,7 @@
 
 import pytest
 
+from claude_remoto import __version__
 from conftest import TOKEN
 
 pytestmark = pytest.mark.browser
@@ -779,4 +780,256 @@ def test_sesiones_en_paralelo(browser, make_server):
     pc.wait_for_selector("#tabs .tab.on:has-text('Principal')")
     cel.wait_for_function("document.querySelectorAll('#tabs .tab[data-tab]').length === 1", timeout=8000)
     assert cel.locator("#log .msg.user").all_inner_texts() == ["tarea en Principal"]
+    ctx.close()
+
+
+def test_cola_de_mensajes(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    pc, cel = ctx.new_page(), ctx.new_page()
+    pc.goto(f"{s.base}/?token={TOKEN}")
+    pc.wait_for_selector("#input")
+    cel.goto(f"{s.base}/")                                                   # ya con la cookie de sesión
+    cel.wait_for_selector("#input")
+    pc.fill("#input", "primera")
+    pc.click("#send")
+    pc.wait_for_selector(".card .yes")
+    assert pc.is_enabled("#send") and "cola" in pc.get_attribute("#input", "placeholder")
+    pc.fill("#input", "segunda")
+    pc.click("#send")
+    pc.type("#input", "tercera")                                             # se escribe mientras «segunda» se envía
+    pc.click("#send")
+    cel.wait_for_selector(".msg.queued:has-text('tercera')")              # se ve en el otro dispositivo
+    pc.wait_for_function("document.querySelector('#wkMeta').textContent.includes('2 en cola')", timeout=5000)
+    cel.click(".msg.queued:has-text('tercera') .qx")                         # quitar desde el celular
+    pc.wait_for_selector(".msg.queued.dropped:has-text('tercera')")
+    pc.click(".card:not(.closed) .yes")
+    pc.wait_for_selector(".card:not(.closed) .opt", timeout=8000)
+    pc.click(".card:not(.closed) .opt >> nth=0")
+    # termina «primera» y «segunda» empieza sola: pasa de la cola a un mensaje normal
+    pc.wait_for_selector(".msg.user:not(.queued):has-text('segunda')", timeout=8000)
+    assert pc.locator(".msg.queued:has-text('segunda')").count() == 0
+    assert pc.locator(".msg.user:not(.queued):has-text('tercera')").count() == 0
+    ctx.close()
+
+
+def test_elegir_modelo(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    pc, cel = ctx.new_page(), ctx.new_page()
+    pc.goto(f"{s.base}/?token={TOKEN}")
+    cel.goto(f"{s.base}/")
+    pc.wait_for_selector("#modelBtn:has-text('Predeterminado')")
+    pc.click("#modelBtn")
+    pc.click("[data-model=opus]")
+    pc.wait_for_selector("#modelBtn.custom:has-text('Opus')")
+    cel.wait_for_selector("#modelBtn:has-text('Opus')")                     # en todos los dispositivos
+    ctx.close()
+
+
+def test_sin_eleccion_si_hay_un_solo_modelo(browser, make_server):
+    s = make_server("basic", CLAUDE_MODELS="default")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#modeBtn")
+    page.wait_for_timeout(500)
+    assert page.locator("#modelBtn").is_hidden()
+    ctx.close()
+
+
+def test_dialogo_de_costo_y_uso(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.fill("#input", "x")
+    page.click("#send")
+    page.click(".card .yes")
+    page.wait_for_selector(".card:not(.closed) .opt", timeout=8000)
+    page.click(".card:not(.closed) .opt >> nth=0")
+    page.wait_for_selector(".done:has-text('1.5k tokens')", timeout=8000)
+    page.click("#menuBtn")
+    page.click("[data-cmd=usage]")
+    page.wait_for_selector(".use-cards")
+    assert "US$0.0012" in page.inner_text(".use-card >> nth=0")
+    assert page.locator(".use-chart .bar").count() == 14
+    assert "Principal" in page.inner_text(".use-table >> nth=0")
+    ctx.close()
+
+
+def test_barra_de_version_nueva(browser, make_server, tmp_path):
+    import json as _json
+    f = tmp_path / "release.json"
+    f.write_text(_json.dumps({"tag_name": "v9.0.0", "html_url": "https://github.com/x/y/releases/tag/v9.0.0"}))
+    s = make_server("basic", UPDATE_URL=f.as_uri(), UPDATE_FIRST_DELAY="0")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#updateBar:not([hidden])", timeout=10000)
+    assert "v9.0.0" in page.inner_text("#updateText") and f"(tienes {__version__})" in page.inner_text("#updateText")
+    assert page.get_attribute("#updateLink", "href").endswith("/v9.0.0")
+    page.click("#updateLater")                                      # no volver a avisar de esta versión
+    assert page.locator("#updateBar").is_hidden()
+    page.reload()
+    page.wait_for_selector("#input")
+    page.wait_for_timeout(800)
+    assert page.locator("#updateBar").is_hidden()
+    ctx.close()
+
+
+def test_respaldo_descargar_e_importar(browser, make_server, tmp_path):
+    s = make_server("basic")
+    ctx = new_context(browser, s, accept_downloads=True)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.click("#menuBtn")
+    page.click("[data-cmd=backup]")
+    with page.expect_download() as dl:
+        page.click("#bkExport")
+    path = tmp_path / "respaldo.json"
+    dl.value.save_as(path)
+    import json as _json
+    data = _json.loads(path.read_text())
+    assert data["app"] == "claude-remoto" and "device_prefs" in data and data["device_prefs"]["sound"] is True
+    data["templates"].append({"name": "Desde el respaldo", "text": "hola", "send": True})
+    data["device_prefs"]["tplBar"] = False
+    path.write_text(_json.dumps(data))
+    page.set_input_files("#bkFile", str(path))
+    page.wait_for_selector("[data-bk=templates]")
+    assert "(6)" in page.inner_text("label[for=bk_templates]")
+    page.click("#bkImport")
+    page.wait_for_selector("#toast:has-text('Importado')")
+    assert page.evaluate("prefs.tplBar") is False                      # preferencias de este dispositivo
+    s.login()
+    names = [t["name"] for t in s.api("/api/cmd", {"cmd": "templates"})[1]["templates"]]
+    assert "Desde el respaldo" in names
+    ctx.close()
+
+
+def test_buscar_en_el_historial(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    for t in ["Revisa la Acción del deploy", "algo distinto", "otra accion pendiente 🚀"]:
+        page.fill("#input", t)
+        page.click("#send")
+        page.wait_for_selector(f".msg.user:has-text('{t[:10]}')")
+    page.click("#findBtn")
+    page.fill("#findInput", "ACCIÓN")                                     # sin importar mayúsculas ni tildes
+    page.wait_for_function("document.querySelector('#findCount').textContent==='2/2'")
+    assert page.locator("mark.hit").all_inner_texts() == ["Acción", "accion"]
+    assert page.inner_text("mark.hit.cur") == "accion"                    # parte por lo más reciente
+    page.press("#findInput", "Enter")
+    page.wait_for_function("document.querySelector('#findCount').textContent==='1/2'")
+    assert page.inner_text("mark.hit.cur") == "Acción"
+    page.press("#findInput", "Shift+Enter")
+    assert page.inner_text("#findCount") == "2/2"
+    assert "🚀" in page.inner_text(".msg.user:has-text('otra')")          # el texto queda intacto
+    page.fill("#findInput", "zzz")
+    page.wait_for_function("document.querySelector('#findCount').textContent==='0'")
+    page.fill("#findInput", "deploy")
+    page.wait_for_function("document.querySelector('#findCount').textContent==='1/1'")
+    page.press("#findInput", "Escape")
+    assert page.locator("#findBar").is_hidden() and page.locator("mark.hit").count() == 0
+    assert page.inner_text(".msg.user >> nth=0") == "Revisa la Acción del deploy"
+    page.keyboard.press("Control+f")                                       # atajo de teclado
+    assert page.locator("#findBar").is_visible()
+    ctx.close()
+
+
+def test_exportar_conversacion(browser, make_server, tmp_path):
+    s = make_server("basic")
+    ctx = new_context(browser, s, accept_downloads=True)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.fill("#input", "revisa ABC-123")
+    page.click("#send")
+    page.wait_for_selector(".card .yes")
+    page.click("#menuBtn")
+    page.click("[data-cmd=export]")
+    with page.expect_download() as dl:
+        page.click("#exDownload")
+    assert dl.value.suggested_filename.startswith("claude-principal-")
+    path = tmp_path / "c.md"
+    dl.value.save_as(path)
+    md = path.read_text()
+    assert "## 🧑 Tú" in md and "revisa ABC-123" in md and "⏳ Sin decidir" in md
+    ctx.close()
+
+
+def test_limite_de_gasto(browser, make_server, tmp_path):
+    import json as _json
+    import time as _time
+    home = tmp_path / "casa"
+    home.mkdir()
+    (home / ".claude-remoto-usage.jsonl").write_text(_json.dumps({"ts": _time.time() - 5, "cost": 8.5}) + "\n")
+    s = make_server("basic", HOME=str(home), STATE_FILE=str(home / "state.json"), CLAUDE_WORKDIR=str(home),
+                    ALLOWED_ROOTS=str(home), SPEND_LIMIT_USD="10")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.on("dialog", lambda d: d.accept())
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#budgetBar:has-text('85 %')")                 # aviso: se acerca
+    page.click("#budgetLater")
+    assert page.locator("#budgetBar").is_hidden()
+    # bajar el límite desde el diálogo de uso: queda bloqueado
+    page.click("#menuBtn")
+    page.click("[data-cmd=usage]")
+    page.fill("#bgLimit", "8")
+    page.click("#bgSave")
+    page.wait_for_selector("#budgetBar.over:has-text('pausadas')")
+    assert page.locator("#budgetLater").is_hidden()                       # el bloqueo no se puede ocultar
+    page.wait_for_selector("#bgOverride")
+    page.click("#dlgClose")
+    page.fill("#input", "nueva tarea")
+    page.click("#send")
+    page.wait_for_selector("#toast:has-text('límite de gasto mensual')")
+    assert page.input_value("#input") == "nueva tarea"                    # no se pierde lo escrito
+    page.click("#budgetOverride")
+    page.wait_for_selector("#budgetBar:has-text('continúas este mes')")
+    page.click("#send")
+    page.wait_for_selector(".msg.user:has-text('nueva tarea')")
+    ctx.close()
+
+
+def test_resumen_de_cambios(browser, make_server, tmp_path):
+    from test_cambios import project
+    w = project(tmp_path)
+    s = make_server("cambios", CLAUDE_WORKDIR=str(w), ALLOWED_ROOTS=str(w))
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.fill("#input", "arregla f")
+    page.click("#send")
+    for i in range(1, 4):                                                   # Edit, Write y el comando
+        page.click(".card:not(.closed) .yes")
+        page.wait_for_function(f"document.querySelectorAll('.card.closed').length>={i}")
+    page.wait_for_selector(".card.changes")
+    assert "5 archivos" in page.inner_text(".changes .ch-sum")
+    app = page.locator(".changes details:has-text('app.py')")
+    assert app.locator(".diff").count() == 0                              # el diff se arma al abrir
+    app.locator("summary").click()
+    page.wait_for_selector(".changes details[open] .dl.add:has-text('return 2')")
+    assert "binario" in page.inner_text(".changes details:has-text('logo.png')")
+    page.click(".changes .ch-actions button")
+    assert page.locator(".changes details[open]").count() == 5
+    ctx.close()
+
+
+def test_seccion_web_push(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.click("#menuBtn")
+    page.click("[data-cmd=alerts]")
+    page.wait_for_selector("#pushBox h4")
+    text = page.inner_text("#pushBox")
+    assert "Avisos con la app cerrada" in text
+    if page.evaluate("'PushManager' in window"):
+        page.wait_for_selector("#pushToggle:has-text('Activar en este dispositivo')")
+        assert "cifrado" in text or "cifrado" in page.inner_text("#pushBox")
     ctx.close()

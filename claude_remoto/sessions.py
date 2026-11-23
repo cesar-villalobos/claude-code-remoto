@@ -68,6 +68,10 @@ class Sessions:
         for h, info in list(self.data.items()):
             if info["id"] == public_id:
                 del self.data[h]
+                from .push import (
+                    unsubscribe,  # el dispositivo cerrado deja de recibir avisos
+                )
+                unsubscribe(public_id)
                 save_state(STATE)
                 HUB.emit("revoked", session=public_id)  # el dispositivo afectado se desconecta al instante
                 return info

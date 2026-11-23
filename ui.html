@@ -27,11 +27,20 @@
   #menu{display:none;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
   #menu.open{display:flex}
   #menu button{flex:1 1 30%}
+  #findBar{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--line);background:var(--card,#f6f6f6)}
+  #findBar[hidden]{display:none}
+  #findInput{flex:1;min-width:0;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
+  #findCount{font-size:12px;opacity:.75;min-width:3.5em;text-align:center;font-variant-numeric:tabular-nums}
+  #findBar button{min-width:36px;min-height:36px}
+  mark.hit{background:#ffe066;color:#000;border-radius:2px}
+  mark.hit.cur{background:#ff9f1a;outline:2px solid #ff9f1a}
   #cwdbar{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 12px;border-bottom:1px solid var(--line)}
   #cwd{flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #modeBtn{flex:none;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
   #modeBtn.acceptEdits{border-color:var(--accent);color:var(--accent)}
   #modeBtn.plan{border-color:#5b8def;color:#5b8def}
+  #modelBtn{flex:none;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--text);margin-left:6px}
+  #modelBtn.custom{border-color:var(--accent);color:var(--accent)}
   .mode-opt{display:block;width:100%;text-align:left;margin:6px 0;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px}
   .mode-opt small{display:block;color:var(--muted);margin-top:2px}
   .mode-opt.on{outline:2px solid var(--accent)}
@@ -148,9 +157,37 @@
   #attachBar .att img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
   #attachBar .att button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--bad);color:#fff;font-size:12px;line-height:22px;padding:0}
   #attachBar .count{align-self:center;color:var(--muted);font-size:12px;white-space:nowrap}
+  .msg.user.queued{opacity:.75;border:1px dashed rgba(255,255,255,.6)}
+  .msg.user.queued.dropped{opacity:.45;text-decoration:line-through}
+  .msg.user .qbar{margin-top:6px;font-size:12px;display:flex;align-items:center;gap:8px;text-decoration:none}
+  .msg.user .qx{border:0;background:rgba(0,0,0,.2);color:inherit;border-radius:50%;width:22px;height:22px;padding:0;margin-left:auto}
   .msg .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
   .msg .thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.35)}
   .msg .thumbs .nothumb{font-size:28px}
+  #updateBar{display:flex;align-items:center;gap:10px;padding:6px 12px;font-size:13px;background:color-mix(in srgb,var(--accent) 14%,var(--panel));border-bottom:1px solid var(--line)}
+  #updateBar[hidden]{display:none}
+  #budgetBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;font-size:13px;border-bottom:1px solid var(--line);background:color-mix(in srgb,#f0a020 18%,var(--panel))}
+  #budgetBar.over{background:color-mix(in srgb,#e5484d 20%,var(--panel))}
+  #budgetBar[hidden]{display:none}
+  #budgetBar span{flex:1;min-width:12em}
+  #budgetBar button{font-size:13px}
+  #budgetBar #budgetLater{border:0;background:none;color:var(--muted);font-size:14px}
+  .budget-meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:6px 0}
+  .budget-meter i{display:block;height:100%;background:var(--accent)}
+  .budget-meter.warn i{background:#f0a020}.budget-meter.over i{background:#e5484d}
+  .budget-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+  .budget-row input{width:7em;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
+  .changes h3{margin:0 0 6px;font-size:15px}
+  .changes .ch-sum .plus,.changes summary .plus{color:#1a7f37}.changes .ch-sum .minus,.changes summary .minus{color:#cf222e}
+  .changes details{border-top:1px solid var(--line)}
+  .changes summary{display:flex;gap:8px;align-items:center;padding:8px 2px;cursor:pointer;list-style:none;min-height:36px}
+  .changes summary::-webkit-details-marker{display:none}
+  .changes summary .ch-path{flex:1;min-width:0;overflow-wrap:anywhere;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+  .changes summary .ch-n{font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .changes details[open] summary{font-weight:600}
+  .changes .ch-actions{display:flex;gap:8px;margin-top:6px}
+  #updateBar span{flex:1}#updateBar a{color:var(--accent);font-weight:600}
+  #updateBar button{border:0;background:none;color:var(--muted);font-size:14px}
   #tabs{display:flex;gap:6px;overflow-x:auto;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);scrollbar-width:none}
   #tabs::-webkit-scrollbar{display:none}
   #tabs .tab{flex:none;display:flex;align-items:center;gap:6px;max-width:44vw;padding:6px 12px;border-radius:16px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px}
@@ -190,6 +227,16 @@
   #ttsBtn.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent)}
   #ttsBtn.talking{animation:pulse 1.2s infinite}
   @media (prefers-reduced-motion:reduce){#ttsBtn.talking{animation:none}}
+  .use-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+  .use-card{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg)}
+  .use-card b{display:block;font-size:18px}.use-card small{color:var(--muted);display:block;font-size:11px}
+  .use-chart{display:flex;align-items:flex-end;gap:3px;height:90px;margin:10px 0 2px;border-bottom:1px solid var(--line)}
+  .use-chart .bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:1px;opacity:.85}
+  .use-chart .bar.today{opacity:1;outline:1px solid var(--accent)}
+  .use-axis{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+  .use-table{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}
+  .use-table td,.use-table th{padding:4px 2px;border-bottom:1px solid var(--line);text-align:right}
+  .use-table td:first-child,.use-table th:first-child{text-align:left}
   .tts-row{display:flex;align-items:center;gap:8px;margin:8px 0}.tts-row label{flex:1}
   .tts-row select,.tts-row input[type=range]{flex:1;min-width:0;max-width:60%}
   #mic.rec{background:var(--bad);border-color:var(--bad);color:#fff;animation:pulse 1.2s infinite}
@@ -212,6 +259,7 @@
 <header>
   <span id="dot" class="off" title="estado"></span>
   <h1>Claude Remoto</h1>
+  <button class="icon" id="findBtn" title="Buscar en esta conversación (Ctrl+F)" aria-label="Buscar">🔍</button>
   <button class="icon" id="ttsBtn" title="Respuestas habladas: apagadas" aria-pressed="false" hidden>🔇</button>
   <button class="icon" id="stopBtn" title="Detener">⏹</button>
   <button class="icon" id="menuBtn" title="Menú">☰</button>
@@ -220,17 +268,29 @@
   <button class="icon" data-cmd="new">🆕 Conversación nueva</button>
   <button class="icon" data-cmd="sessions">🧵 Retomar conversación</button>
   <button class="icon" data-cmd="cd">📁 Carpeta</button>
+  <button class="icon" data-cmd="export">📝 Exportar a Markdown</button>
   <button class="icon" data-cmd="status">ℹ️ Estado</button>
+  <button class="icon" data-cmd="usage">💲 Uso</button>
   <button class="icon" data-cmd="alerts">🔔 Alertas</button>
   <button class="icon" data-cmd="voice">🎤 Voz</button>
   <button class="icon" data-cmd="templates">⚡ Plantillas</button>
   <button class="icon" data-cmd="jira">🎫 Jira</button>
   <button class="icon" data-cmd="rules">⚖️ Reglas</button>
   <button class="icon" data-cmd="security">🔐 Seguridad</button>
+  <button class="icon" data-cmd="backup">💾 Respaldo</button>
   <button class="icon" data-cmd="logout">🚪 Salir</button>
 </nav>
 <nav id="tabs" aria-label="Sesiones en paralelo"></nav>
-<div id="cwdbar"><span id="cwd"></span><button id="modeBtn" title="Modo de permisos"></button></div>
+<div id="findBar" hidden role="search">
+  <input id="findInput" type="search" placeholder="Buscar en esta conversación…" aria-label="Buscar en esta conversación" autocomplete="off" enterkeyhint="search">
+  <span id="findCount" aria-live="polite"></span>
+  <button class="icon" id="findPrev" title="Anterior (Mayús+Enter)" aria-label="Anterior">▲</button>
+  <button class="icon" id="findNext" title="Siguiente (Enter)" aria-label="Siguiente">▼</button>
+  <button class="icon" id="findClose" title="Cerrar (Esc)" aria-label="Cerrar búsqueda">✕</button>
+</div>
+<div id="cwdbar"><span id="cwd"></span><button id="modeBtn" title="Modo de permisos"></button><button id="modelBtn" title="Modelo de esta pestaña"></button></div>
+<div id="updateBar" hidden><span id="updateText"></span><a id="updateLink" target="_blank" rel="noopener noreferrer">Ver novedades</a><button id="updateLater" title="No avisar de esta versión">✕</button></div>
+<div id="budgetBar" hidden><span id="budgetText"></span><button id="budgetGo">Ver uso</button><button id="budgetOverride" hidden>Continuar este mes</button><button id="budgetLater" title="No avisar de nuevo este mes">✕</button></div>
 <div id="alertBar" hidden>
   <span>🔔 Activa las alertas para enterarte cuando Claude necesite tu decisión.</span>
   <button id="alertOn">Activar</button><button id="alertLater" title="Ahora no">✕</button>
@@ -277,7 +337,7 @@ function md(src){  // Markdown mínimo y seguro (escapa primero)
 }
 function toast(t){const el=$('#toast');el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',3500)}
 function nearBottom(){return log.scrollHeight-log.scrollTop-log.clientHeight<120}
-function add(el,force){const stick=force||nearBottom();linkify(el);log.appendChild(el);if(stick)log.scrollTop=log.scrollHeight}
+function add(el,force){const stick=force||nearBottom()&&!findOpen();linkify(el);log.appendChild(el);if(stick)log.scrollTop=log.scrollHeight;if(findOpen())findLater()}
 
 // ---------- enlaces a Jira: ABC-123 → https://tu-jira/browse/ABC-123 ----------
 const JIRA_RE=/\b([A-Z][A-Z0-9]{1,9})-(\d{1,7})\b/g;
@@ -357,6 +417,7 @@ function showTab(tab,{scroll=true}={}){
   ensureHint(m); m.querySelector('.hint')?.setAttribute('id','hint');
   setStatus({});
   if(scroll)log.scrollTop=log.scrollHeight;
+  if(typeof findOpen==='function'&&findOpen())findRun();   // la búsqueda sigue en la pestaña nueva
 }
 function applyTabStatus(){
   if(Array.isArray(status.tabs))tabsInfo=status.tabs;
@@ -365,7 +426,7 @@ function applyTabStatus(){
   if(!tabsInfo.some(t=>t.id===activeTab)){activeTab=tabsInfo[0].id;showTab(activeTab);return}
   tabsInfo.forEach(t=>logFor(t.id));
   const t=tabsInfo.find(x=>x.id===activeTab);
-  Object.assign(status,{busy:t.busy,cwd:t.cwd,session:t.session,mode:t.mode,pending:t.pending,since:t.since,always:t.always,name:t.name,tab:t.id});
+  Object.assign(status,{busy:t.busy,queued:t.queued||0,cwd:t.cwd,session:t.session,mode:t.mode,model:t.model,pending:t.pending,since:t.since,always:t.always,name:t.name,tab:t.id});
   const m=logs[activeTab]; if(m&&m.id!=='log'){showTab(activeTab,{scroll:false});return}
   paintTabs();
 }
@@ -426,7 +487,7 @@ function paintWorking(){
   $('#wkVerb').textContent=waiting
     ?(mine.length>1?`Esperando ${mine.length} decisiones…`:'Esperando tu decisión…')
     :verb+'…';
-  $('#wkMeta').textContent=fmtElapsed(secs)+(waiting?' · toca para verla':'');
+  $('#wkMeta').textContent=fmtElapsed(secs)+(waiting?' · toca para verla':'')+(status.queued?` · ${status.queued} en cola`:'');
   $('#wkAct').textContent=waiting?'':(activity[activeTab]||'');
 }
 function updateWorking(){
@@ -446,9 +507,87 @@ const MODES={
   acceptEdits:{label:'✏️ Aceptar ediciones',desc:'Aprueba solo las ediciones de archivos. Comandos, Jira y lo demás siguen preguntando.'},
   plan:{label:'📋 Solo planificar',desc:'Claude investiga y propone un plan sin modificar nada. Tú lo apruebas antes de ejecutar.'},
 };
+// ---------- aviso de versión nueva ----------
+function paintBudget(){
+  const b=status.budget, bar=$('#budgetBar');
+  const show=b&&(b.blocked||(b.level==='warn'||b.level==='over')&&prefs.budgetSeen!==b.month+':'+b.level);
+  bar.hidden=!show; if(!show)return;
+  bar.classList.toggle('over',b.level==='over');
+  $('#budgetText').textContent=b.blocked?`⛔ Llegaste al límite mensual (${usd(b.limit)}): las tareas nuevas están pausadas.`
+    :b.level==='over'?`💲 Vas en ${usd(b.spent)}, sobre el límite de ${usd(b.limit)} (continúas este mes).`
+    :`💲 Llevas ${usd(b.spent)} de ${usd(b.limit)} este mes (${Math.round(b.pct)} %).`;
+  $('#budgetOverride').hidden=!b.blocked; $('#budgetLater').hidden=!!b.blocked;   // al bloquear no se puede ocultar
+}
+$('#budgetGo').onclick=()=>usageDialog();
+$('#budgetLater').onclick=()=>{const b=status.budget||{};prefs.budgetSeen=b.month+':'+b.level;savePrefs();paintBudget()};
+$('#budgetOverride').onclick=async()=>{
+  if(!confirm('¿Continuar este mes aunque se haya superado el límite de gasto? Se vuelve a aplicar el mes que viene.'))return;
+  const r=await api('/api/cmd',{cmd:'budget_override'}); if(r.ok)toast('Puedes seguir este mes');
+};
+function budgetSection(b){
+  const pct=b.limit?Math.min(100,b.pct):0, cls=b.level==='over'?'over':b.level==='warn'?'warn':'';
+  return `<h4>Límite de gasto mensual</h4>
+    ${b.limit?`<div class="budget-meter ${cls}" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+    <p class="note">Este mes (desde el día 1): <b>${usd(b.spent)}</b> de ${usd(b.limit)} · ${Math.round(b.pct)} %${b.blocked?' · <b>tareas nuevas pausadas</b>':b.override?' · continuando sobre el límite':''}</p>`
+      :`<p class="note">Sin límite. Este mes llevas ${usd(b.spent)}.</p>`}
+    <div class="budget-row"><label for="bgLimit">US$</label><input id="bgLimit" type="number" min="0" step="1" inputmode="decimal" value="${b.limit||''}" placeholder="sin límite">
+      <label for="bgWarn">avisar al</label><input id="bgWarn" type="number" min="50" max="100" step="5" value="${b.warn}"><span>%</span>
+      <button id="bgSave">Guardar</button>${b.blocked?'<button id="bgOverride">Continuar este mes</button>':''}</div>
+    <p class="note">Al llegar al límite no se corta la tarea en curso: solo dejan de iniciarse tareas nuevas, también las de la cola. Usa el costo estimado de Claude Code; con un gateway el cobro real puede ser distinto. 0 o vacío = sin límite.</p>`;
+}
+function paintUpdate(){
+  const u=status.update, bar=$('#updateBar');
+  bar.hidden=!u||prefs.updateSeen===u.version;
+  if(bar.hidden)return;
+  $('#updateText').textContent=`🆕 Hay una versión nueva: ${u.version} (tienes ${status.version||'?'})`;
+  const a=$('#updateLink'); a.hidden=!u.url; if(u.url)a.href=u.url;
+}
+$('#updateLater').onclick=()=>{prefs.updateSeen=(status.update||{}).version||'';savePrefs();paintUpdate()};
 function paintMode(){
   const m=MODES[status.mode]?status.mode:'default';
   const b=$('#modeBtn'); b.textContent=MODES[m].label; b.className=m;
+  paintModel();
+}
+// ---------- modelo de cada pestaña ----------
+const modelLabel=v=>((status.models||[]).find(m=>m.value===v)||{}).label||v;
+function paintModel(){
+  const b=$('#modelBtn'), m=status.model||'default', list=status.models||[];
+  b.hidden=list.length<2;   // con un solo modelo configurado no hay nada que elegir
+  b.textContent='🧠 '+modelLabel(m); b.classList.toggle('custom',m!=='default');
+}
+function modelDialog(){
+  showDialog(`<h3>🧠 Modelo</h3><p class="note">Solo para la pestaña «${esc(status.name||'')}». Se aplica de inmediato, también con una tarea en curso, y en todos tus dispositivos. «Predeterminado» es el que tengas configurado en Claude Code.</p>`);
+  (status.models||[]).forEach(m=>{
+    const r=document.createElement('button'); r.className='mode-opt'+((status.model||'default')===m.value?' on':''); r.dataset.model=m.value;
+    r.innerHTML=`${esc(m.label)}${m.label!==m.value?`<small>${esc(m.value)}</small>`:''}`;
+    r.onclick=async()=>{dlg.close();if(m.value!==(status.model||'default')){const j=await api('/api/cmd',{cmd:'model',arg:m.value});if(j.status)setStatus(j.status)}};
+    $('#dlgBody').appendChild(r);
+  });
+}
+// ---------- costo y uso ----------
+const usd=v=>v>0?(v<0.01?'US$'+v.toFixed(4):'US$'+v.toFixed(2)):'US$0';
+const ktok=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n);
+async function usageDialog(){
+  const j=await api('/api/cmd',{cmd:'usage'}); if(!j.totals)return;
+  const T=j.totals, hasCost=j.days.some(d=>d.cost>0)||T.month.cost>0;
+  const metric=d=>hasCost?d.cost:d.in+d.out, max=Math.max(...j.days.map(metric),0)||1;
+  const card=(t,a)=>`<div class="use-card"><small>${t}</small><b>${hasCost?usd(a.cost):ktok(a.in+a.out)}</b><small>${a.tasks} tarea${a.tasks===1?'':'s'} · ${ktok(a.in+a.out)} tokens</small></div>`;
+  const bars=j.days.map((d,i)=>`<div class="bar${i===j.days.length-1?' today':''}" style="height:${Math.round(metric(d)/max*100)}%" title="${esc(d.day)}: ${hasCost?usd(d.cost):ktok(d.in+d.out)+' tokens'} · ${d.tasks} tareas"></div>`).join('');
+  const rows=list=>list.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.tasks}</td><td>${ktok(r.in+r.out)}</td><td>${usd(r.cost)}</td></tr>`).join('')||'<tr><td colspan="4">Sin tareas</td></tr>';
+  const table=(t,list)=>`<h4>${t}</h4><table class="use-table"><tr><th></th><th>Tareas</th><th>Tokens</th><th>Costo</th></tr>${rows(list)}</table>`;
+  showDialog(`<h3>💲 Costo y uso</h3>
+    <div class="use-cards">${card('Hoy',T.today)}${card('7 días',T.week)}${card('30 días',T.month)}</div>
+    <div class="use-chart" aria-label="Últimos ${j.days.length} días">${bars}</div>
+    <div class="use-axis"><span>${esc(j.days[0].day.slice(5))}</span><span>${hasCost?'costo':'tokens'} por día</span><span>hoy</span></div>
+    ${j.budget?budgetSection(j.budget):''}
+    ${table('Por pestaña (30 días)',j.tabs)}${table('Por modelo (30 días)',j.models)}
+    <p class="note">El costo es la estimación de Claude Code según los precios públicos: con un gateway corporativo el cobro real puede ser distinto. No se guarda el texto de las tareas. Registro: <code>${esc(j.file)}</code></p>`);
+  if(!j.budget)return;
+  $('#bgSave').onclick=async()=>{
+    const r=await api('/api/cmd',{cmd:'budget_set',limit:Number($('#bgLimit').value||0),warn:Number($('#bgWarn').value||80)});
+    if(r.ok){toast(r.budget.limit?`Límite: ${usd(r.budget.limit)} al mes`:'Sin límite de gasto');usageDialog()}
+  };
+  const ov=$('#bgOverride'); if(ov)ov.onclick=()=>$('#budgetOverride').click();
 }
 function modeDialog(){
   showDialog('<h3>Modo de permisos</h3><p class="note">Se aplica de inmediato, incluso con una tarea en curso, y en todos tus dispositivos.</p>');
@@ -462,14 +601,20 @@ function modeDialog(){
 function setStatus(s){
   status={...status,...s};
   applyTabStatus();
-  paintMode();
+  paintMode(); paintUpdate(); paintBudget();
   if(typeof s.now==='number')clockSkew=s.now-Date.now()/1000;
   paintDot(); updateWorking(); syncWakeLock();
-  $('#send').disabled=!!status.busy;
+  $('#send').disabled=false;   // mientras trabaja, lo que se envía queda en cola
+  if(!rec)input.placeholder=idlePlaceholder();
   paintMic();
   if(status.tpl&&status.tpl!==tplVersion){tplVersion=status.tpl;loadTemplates()}   // cambiaron en algún dispositivo
   const jk=JSON.stringify(status.jira||null); if(jk!==jiraKey){jiraKey=jk;for(const m of Object.values(logs).concat(Object.keys(logs).length?[]:[log])){m.querySelectorAll('a.jira').forEach(x=>x.replaceWith(x.textContent));m.normalize();linkify(m)}}   // dirección de Jira nueva
   $('#cwd').textContent='📁 '+(status.cwd||'')+(status.session?'  ·  🧵 '+status.session.slice(0,8):'  ·  sesión nueva');
+}
+function idlePlaceholder(){return status.busy?'Claude trabaja: lo que envíes queda en cola…':'Escribe una tarea…'}
+function thumbsHtml(images){
+  const th=(images||[]).map(t=>t?`<img src="data:image/jpeg;base64,${esc(t)}" alt="Captura adjunta">`:'<span class="nothumb" title="Captura adjunta">🖼️</span>').join('');
+  return th?`<div class="thumbs">${th}</div>`:'';
 }
 function where(ev){return ev.tab&&ev.tab!==activeTab&&multiTab()?' en '+tabName(ev.tab):''}
 function closeCard(ref,label){
@@ -526,6 +671,33 @@ function renderDiff(d){
     box.appendChild(more);
   }
   return box;
+}
+// Resumen de cambios al terminar una tarea: un desplegable por archivo con su diff
+const CH_ICON={added:['🆕','nuevo'],modified:['✏️','modificado'],deleted:['🗑️','borrado']};
+function renderChanges(ev,live){
+  const n=ev.total, c=div('card changes',`<h3>📝 Cambios de esta tarea</h3>
+    <div class="ch-sum">${n} archivo${n===1?'':'s'} · <span class="plus">+${ev.add}</span> <span class="minus">−${ev.del}</span></div>`);
+  for(const f of ev.files){
+    const [icon,label]=CH_ICON[f.status]||['•',''];
+    const d=document.createElement('details');
+    d.innerHTML=`<summary><span title="${label}" aria-label="${label}">${icon}</span><span class="ch-path">${esc(f.path)}</span>`+
+      (f.binary?'<span class="ch-n">binario</span>':`<span class="ch-n"><span class="plus">+${f.add}</span> <span class="minus">−${f.del}</span></span>`)+'</summary>';
+    d.addEventListener('toggle',()=>{   // el diff se arma al abrir (puede ser largo)
+      if(!d.open||d.dataset.ready)return; d.dataset.ready='1';
+      d.appendChild(f.diff?renderDiff(f.diff):div('note',f.binary?'Archivo binario o muy grande: sin diff.':'Sin diff.'));
+    });
+    c.appendChild(d);
+  }
+  const notes=[];
+  if(n>ev.files.length)notes.push(`y ${n-ev.files.length} archivo${n-ev.files.length===1?'':'s'} más`);
+  if(!ev.git)notes.push('Solo los archivos editados con herramientas: la carpeta no es un repositorio git, así que no se ven los cambios hechos con comandos.');
+  if(notes.length)c.appendChild(div('note',esc(notes.join(' · '))));
+  if(ev.files.length>1){
+    const a=div('ch-actions',''), b=document.createElement('button');
+    b.textContent='Abrir todos'; b.onclick=()=>{const all=[...c.querySelectorAll('details')],open=!all.every(x=>x.open);all.forEach(x=>x.open=open);b.textContent=open?'Cerrar todos':'Abrir todos'};
+    a.appendChild(b); c.appendChild(a);
+  }
+  add(c,live);
 }
 function renderPlan(ev,live){
   const c=div('card',`<h3>${esc(ev.title)}</h3><div class="plan-body">${md(ev.plan||'')}</div>`);
@@ -628,8 +800,15 @@ function renderIn(ev,live){
   trackWorking(ev);
   switch(ev.type){
     case 'user':{
-      const th=(ev.images||[]).map(t=>t?`<img src="data:image/jpeg;base64,${esc(t)}" alt="Captura adjunta">`:'<span class="nothumb" title="Captura adjunta">🖼️</span>').join('');
-      add(div('msg user',(th?`<div class="thumbs">${th}</div>`:'')+esc(ev.text)),true);if(live&&ev.tab===activeTab)ttsStop();break;}
+      if(ev.qid)document.getElementById('q-'+ev.qid)?.remove();   // salió de la cola: pasa a su lugar real
+      add(div('msg user',thumbsHtml(ev.images)+esc(ev.text)),true);if(live&&ev.tab===activeTab&&!ev.qid)ttsStop();break;}
+    case 'queued':{
+      const m=div('msg user queued',thumbsHtml(ev.images)+esc(ev.text)+'<div class="qbar">⏳ En cola · se envía cuando Claude termine <button class="qx" aria-label="Quitar de la cola">✕</button></div>');
+      m.id='q-'+ev.qid; m.querySelector('.qx').onclick=()=>api('/api/cmd',{cmd:'queue_remove',arg:ev.qid,tab:ev.tab});
+      add(m,true);break;}
+    case 'unqueued':{
+      const m=document.getElementById('q-'+ev.qid); if(!m)break;
+      m.classList.add('dropped'); const b=m.querySelector('.qbar'); if(b)b.textContent=ev.label||'Quitado de la cola';break;}
     case 'stream': renderStream(ev,live);break;
     case 'assistant':{
       const partial=ev.replaces&&document.getElementById('s-'+ev.replaces);
@@ -638,9 +817,10 @@ function renderIn(ev,live){
       if(live&&(!ev.tab||ev.tab===activeTab))ttsSay(ev.text);
       break;}
     case 'tool': add(div('tool','› '+esc(ev.text)),live);break;
+    case 'changes': renderChanges(ev,live);break;
     case 'info': add(div('info',esc(ev.text)),live);break;
     case 'error': add(div('msg error','💥 '+esc(ev.text)),live);if(live)alertDone(ev,false);break;
-    case 'done': add(div('done',(ev.ok?'✅ Listo':'⚠️ Terminó con error')+(ev.duration?` · ${fmtElapsed(Math.round(ev.duration))}`:'')+(ev.cost?` · US$${ev.cost.toFixed(4)}`:'')),live);if(live){notify();alertDone(ev,ev.ok)}break;
+    case 'done': add(div('done',(ev.ok?'✅ Listo':'⚠️ Terminó con error')+(ev.duration?` · ${fmtElapsed(Math.round(ev.duration))}`:'')+(ev.cost?` · US$${ev.cost.toFixed(4)}`:'')+(ev.tokens?` · ${ktok(ev.tokens)} tokens`:'')),live);if(live){notify();alertDone(ev,ev.ok)}break;
     case 'perm': renderPerm(ev,live);if(live&&!decided[ev.ref])ttsNotice((ev.tool==='ExitPlanMode'?'Claude propone un plan':'Claude necesita tu aprobación')+where(ev)+'.');break;
     case 'question': renderQuestion(ev,live);if(live&&!decided[ev.ref])ttsNotice('Claude tiene una pregunta'+where(ev)+'.');break;
     case 'decided': decided[ev.ref]=ev.label;closeCard(ev.ref,ev.label);closeNotif(ev.ref);break;
@@ -650,10 +830,76 @@ function renderIn(ev,live){
   }
 }
 
+// ---------- buscar en el historial de la pestaña ----------
+// Todo en el navegador, sobre lo que ya está cargado: no se envía nada al servidor.
+// Ignora mayúsculas y tildes («accion» encuentra «Acción»).
+let findHits=[], findIdx=-1, findTimer=null;
+const findOpen=()=>!$('#findBar').hidden;
+const fold=c=>{const f=c.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();return f.length===1?f:c.toLowerCase()};
+function findClear(){
+  document.querySelectorAll('mark.hit').forEach(m=>{const p=m.parentNode;p.replaceChild(document.createTextNode(m.textContent),m);p.normalize()});
+  findHits=[];
+}
+function findRun(keep){
+  const q=[...$('#findInput').value.trim()].map(fold).join('');
+  const prev=keep&&findHits[findIdx]?findIdx:-1;
+  findClear();
+  if(q.length<2){findIdx=-1;paintFind();return}
+  const walker=document.createTreeWalker(log,NodeFilter.SHOW_TEXT,{acceptNode:n=>{
+    const p=n.parentElement;
+    if(!p||p.closest('button,.qbar,script,style')||!n.nodeValue.trim())return NodeFilter.FILTER_REJECT;
+    return p.getClientRects().length?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;   // solo lo visible
+  }});
+  const nodes=[]; while(walker.nextNode())nodes.push(walker.currentNode);
+  for(const n of nodes){
+    const text=n.nodeValue, folded=[...text].map(fold);   // un carácter doblado por cada original
+    const chars=[...text]; const parts=[]; let last=0;
+    const hay=folded.join('');
+    // índices por carácter (no por unidad UTF-16) para no romper emojis
+    let i=hay.indexOf(q);
+    if(i<0)continue;
+    const offs=[];let acc=0;for(const f of folded){offs.push(acc);acc+=f.length}
+    const toChar=x=>{let k=offs.findIndex(o=>o>=x);return k<0?chars.length:k};
+    while(i>=0){const a=toChar(i),b=toChar(i+q.length);parts.push([a,b]);i=hay.indexOf(q,i+q.length)}
+    const frag=document.createDocumentFragment();
+    for(const [a,b] of parts){
+      if(a>last)frag.appendChild(document.createTextNode(chars.slice(last,a).join('')));
+      const m=document.createElement('mark');m.className='hit';m.textContent=chars.slice(a,b).join('');frag.appendChild(m);findHits.push(m);last=b;
+    }
+    if(last<chars.length)frag.appendChild(document.createTextNode(chars.slice(last).join('')));
+    n.parentNode.replaceChild(frag,n);
+  }
+  findIdx=findHits.length?(prev>=0?Math.min(prev,findHits.length-1):findHits.length-1):-1;   // por defecto, lo más reciente
+  paintFind(!keep);
+}
+function paintFind(scroll=true){
+  findHits.forEach((m,i)=>m.classList.toggle('cur',i===findIdx));
+  const q=$('#findInput').value.trim();
+  $('#findCount').textContent=!q||q.length<2?'':findHits.length?`${findIdx+1}/${findHits.length}`:'0';
+  $('#findPrev').disabled=$('#findNext').disabled=findHits.length<2;
+  if(scroll&&findHits[findIdx])findHits[findIdx].scrollIntoView({block:'center'});
+}
+function findStep(d){if(!findHits.length)return;findIdx=(findIdx+d+findHits.length)%findHits.length;paintFind()}
+function findLater(){clearTimeout(findTimer);findTimer=setTimeout(()=>findRun(true),300)}   // llegó algo nuevo
+function openFind(){$('#findBar').hidden=false;const i=$('#findInput');i.focus();i.select();if(i.value)findRun()}
+function closeFind(){clearTimeout(findTimer);findClear();$('#findBar').hidden=true;$('#findCount').textContent=''}
+$('#findBtn').onclick=()=>findOpen()?closeFind():openFind();
+$('#findClose').onclick=closeFind;
+$('#findPrev').onclick=()=>findStep(-1);
+$('#findNext').onclick=()=>findStep(1);
+$('#findInput').addEventListener('input',()=>{clearTimeout(findTimer);findTimer=setTimeout(()=>findRun(),150)});
+$('#findInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();clearTimeout(findTimer);if(!findHits.length)findRun();else findStep(e.shiftKey?-1:1)}
+  else if(e.key==='Escape'){e.preventDefault();closeFind()}
+});
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&!e.altKey&&e.key.toLowerCase()==='f'&&!document.querySelector('dialog[open]')){e.preventDefault();openFind()}
+});
+
 // ---------- alertas: sonido, notificaciones del sistema, pantalla encendida ----------
 let tplVersion='', jiraKey='null';   // versión de las plantillas y configuración de Jira vistas por última vez
 const PREF_KEY='cr_prefs';
-const prefs={sound:true,notify:true,wake:true,detail:false,asked:false,doneAfter:30,voice:'auto',voiceBrowserOk:false,tts:false,ttsVoice:'',ttsRate:1.1,ttsDecisions:true,tplBar:true};
+const prefs={updateSeen:'',budgetSeen:'',sound:true,notify:true,wake:true,detail:false,asked:false,doneAfter:30,voice:'auto',voiceBrowserOk:false,tts:false,ttsVoice:'',ttsRate:1.1,ttsDecisions:true,tplBar:true};
 try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREF_KEY)||'{}'))}catch(_){}
 function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch(_){}}
 
@@ -926,6 +1172,7 @@ function auditText(e){
     case 'blocked':return `⛔ Bloqueado por regla ${t(e.rule)} · <code>${t(e.target)}</code>`;
     case 'tool':return `› <code>${t(e.target)}</code>`;
     case 'mode':return `🔀 Modo: ${t((MODES[e.mode]||{}).label||e.mode)}`;
+    case 'model':return `🧠 Modelo: ${t(modelLabel(e.model))}`;
     case 'rule_add':return `⚖️ Regla agregada (${e.action==='deny'?'bloquear':'aprobar'}): ${t(e.rule)}`;
     case 'rule_del':return `⚖️ Regla eliminada: ${t(e.rule)}`;
     case 'stop':return '⏹️ Tarea detenida';
@@ -971,7 +1218,9 @@ function alertsDialog(){
     <label class="opt-row"><span>Detalle en la notificación<small>Muestra el comando o archivo (visible en la pantalla bloqueada)</small></span><input type="checkbox" data-pref="detail"></label>
     <label class="opt-row"><span>Pantalla encendida mientras trabaja<small>${'wakeLock' in navigator?'Evita que el teléfono se bloquee y congele la página':'No disponible en este navegador'}</small></span><input type="checkbox" data-pref="wake"></label>
     ${notes}
-    <button class="row" id="testAlert" style="text-align:center">🔊 Probar alerta</button>`);
+    <button class="row" id="testAlert" style="text-align:center">🔊 Probar alerta</button>
+    <div id="pushBox"></div>`);
+  paintPush();
   document.querySelectorAll('[data-pref]').forEach(i=>{
     i.checked=!!prefs[i.dataset.pref];
     i.onchange=async()=>{
@@ -992,6 +1241,42 @@ function alertsDialog(){
     }
     toast(sonó?'🔊 Sonido OK':'🔇 Sonido desactivado o bloqueado');
   };
+}
+
+// ---------- Web Push: avisos con la app cerrada ----------
+const b64uBytes=s=>{const b=atob((s+'='.repeat((4-s.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0))};
+const canPush=()=>isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+async function paintPush(){
+  const box=$('#pushBox'); if(!box)return;
+  const head=`<h4>📲 Avisos con la app cerrada</h4>`;
+  const ios=/iPhone|iPad/.test(navigator.userAgent), standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+  if(!canPush()){
+    box.innerHTML=head+`<p class="note">${!isSecureContext?'Necesitan HTTPS (ver README).':ios&&!standalone?'En iPhone: agrega esta página a la pantalla de inicio (Compartir → Agregar a inicio), ábrela desde ahí y vuelve aquí.':'Este navegador no los soporta.'}</p>`;
+    return;
+  }
+  const j=await api('/api/cmd',{cmd:'push_status'}); if(!j.ok)return;
+  if(!j.enabled){box.innerHTML=head+`<p class="note">${esc(j.reason||'Desactivados en este PC.')}</p>`;return}
+  const reg=swReg||await navigator.serviceWorker.ready, local=await reg.pushManager.getSubscription().catch(()=>null);
+  const on=j.subscribed&&!!local;
+  box.innerHTML=head+`<p class="note">Llegan aunque cierres la app o bloquees el teléfono: «Claude necesita tu decisión» y «Claude terminó» (tareas de más de 30 s). Para eso el aviso pasa por el servicio de notificaciones del navegador (Apple, Google…), en internet: va <b>cifrado</b> y es <b>genérico</b>, sin comandos, archivos ni textos. Si tienes la app abierta, avisa la página y no llega el push.</p>
+    <div class="sec-actions"><button id="pushToggle">${on?'Desactivar en este dispositivo':'Activar en este dispositivo'}</button>${on?'<button id="pushTest">Probar</button>':''}</div>`;
+  $('#pushToggle').onclick=async()=>{
+    $('#pushToggle').disabled=true;
+    try{
+      if(on){await local?.unsubscribe().catch(()=>{});await api('/api/cmd',{cmd:'push_unsubscribe'});toast('Avisos desactivados en este dispositivo')}
+      else{
+        if(await Notification.requestPermission()!=='granted'){toast('Permiso de notificaciones denegado');return}
+        const key=b64uBytes(j.key);
+        let sub=local;
+        if(sub&&sub.options?.applicationServerKey&&new Uint8Array(sub.options.applicationServerKey).join()!==key.join()){await sub.unsubscribe();sub=null}
+        sub=sub||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+        const r=await api('/api/cmd',{cmd:'push_subscribe',sub:sub.toJSON()});
+        if(r.ok)toast('Avisos activados: prueba con «Probar»');
+      }
+    }catch(e){toast('No se pudo: '+(e.message||e))}
+    finally{paintPush()}
+  };
+  const t=$('#pushTest'); if(t)t.onclick=async()=>{t.disabled=true;const r=await api('/api/cmd',{cmd:'push_test'});if(r.ok)toast('Aviso enviado: debería llegar en unos segundos');t.disabled=false};
 }
 
 // ---------- sincronización en vivo entre dispositivos ----------
@@ -1079,6 +1364,7 @@ window.addEventListener('online',resync);
 window.addEventListener('pageshow',e=>{if(e.persisted)resync()});
 $('#dot').onclick=()=>toast($('#dot').title);
 $('#modeBtn').onclick=modeDialog;   // en el celular no hay tooltips
+$('#modelBtn').onclick=modelDialog;
 showAlertBar(); setupSW();
 lastSeen=Date.now();
 startSSE();
@@ -1089,17 +1375,19 @@ input.addEventListener('input',()=>{autosize();paintTemplates();cmdSel=0;paintCo
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!('ontouchstart' in window)){e.preventDefault();send()}});
 async function send(textOverride){
   const fromInput=textOverride===undefined, t=(fromInput?input.value:textOverride).trim();
-  if((!t&&!attached.length)||status.busy||sending)return false;
+  if((!t&&!attached.length)||sending)return false;
   sending=true; $('#send').disabled=true;
   if(attached.length)toast(`Enviando ${attached.length===1?'la captura':attached.length+' capturas'}…`);
+  // Se vacía al tiro: así lo que escribas mientras se envía (p. ej. el siguiente mensaje a la cola) no se borra
+  const typed=fromInput?input.value:null;
+  if(fromInput){input.value='';autosize()}
   try{
     const had=attached.length;
     const j=await api('/api/send',{text:t,images:attached.map(a=>({media_type:a.media_type,data:a.data,thumb:a.thumb}))});
     if(had&&j.ok)$('#toast').style.display='none';   // quita «Enviando…»; si falló, queda el error de api()
-    if(!j.ok)return false;
-    if(fromInput){input.value='';autosize()}
+    if(!j.ok){if(fromInput&&!input.value){input.value=typed;autosize()}return false}
     clearAttachments(); paintTemplates(); return true;
-  }finally{sending=false;$('#send').disabled=!!status.busy}
+  }finally{sending=false;$('#send').disabled=false}
 }
 
 // ---------- capturas adjuntas ----------
@@ -1196,6 +1484,81 @@ input.addEventListener('keydown',e=>{   // en captura: antes que «Enter envía�
   else if(e.key==='Tab'||(e.key==='Enter'&&!e.shiftKey)){e.preventDefault();e.stopImmediatePropagation();pickCommand(cmdItems[cmdSel])}
 },true);
 
+// ---------- exportar la conversación a Markdown ----------
+function exportDialog(){
+  showDialog(`<h3>📝 Exportar a Markdown</h3>
+    <p class="note">Descarga o copia la conversación de la pestaña <b>${esc(status.name||'')}</b>, por ejemplo para pegarla en un ticket o en la documentación. Las capturas no se incluyen.</p>
+    <div class="tts-row"><label for="exTools">Incluir las herramientas usadas y los archivos cambiados</label><input type="checkbox" id="exTools" checked></div>
+    <div class="tts-row"><label for="exDec">Incluir las decisiones y sus respuestas</label><input type="checkbox" id="exDec" checked></div>
+    <div class="sec-actions"><button id="exDownload">⬇️ Descargar .md</button><button id="exCopy">📋 Copiar</button></div>`);
+  const get=()=>api('/api/cmd',{cmd:'export_md',tools:$('#exTools').checked,decisions:$('#exDec').checked});
+  $('#exDownload').onclick=async()=>{
+    const r=await get(); if(!r.ok)return;
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([r.markdown],{type:'text/markdown;charset=utf-8'}));
+    a.download=r.filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000); toast('Conversación descargada'); dlg.close();
+  };
+  $('#exCopy').onclick=async()=>{
+    const r=await get(); if(!r.ok)return;
+    try{await navigator.clipboard.writeText(r.markdown)}
+    catch(_){   // sin HTTPS no hay portapapeles moderno
+      const ta=document.createElement('textarea'); ta.value=r.markdown; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); const ok=document.execCommand('copy'); ta.remove();
+      if(!ok){toast('No se pudo copiar; usa «Descargar»');return}
+    }
+    toast('Copiado al portapapeles'); dlg.close();
+  };
+}
+
+// ---------- respaldo de la configuración ----------
+const BK_LABELS={rules:'⚖️ Reglas',templates:'⚡ Plantillas',jira:'🎫 Jira',budget:'💲 Límite de gasto mensual',tabs:'🗂️ Pestañas (nombre, carpeta, modo y modelo)',device:'📱 Preferencias de este dispositivo (alertas, voz…)'};
+function backupDialog(){
+  showDialog(`<h3>💾 Respaldo de la configuración</h3>
+    <p class="note">Para pasar tu configuración a otro PC (por ejemplo del Windows al Mac) o guardar una copia. <b>No incluye secretos</b>: ni el token, ni las sesiones de los dispositivos, ni el 2FA, ni la auditoría, ni el historial.</p>
+    <h4>Descargar</h4>
+    <div class="tts-row"><label for="bkDevice">Incluir las preferencias de este dispositivo</label><input type="checkbox" id="bkDevice" checked></div>
+    <div class="sec-actions"><button id="bkExport">⬇️ Descargar respaldo</button></div>
+    <h4>Importar</h4>
+    <div class="sec-actions"><button id="bkPick">📂 Elegir archivo…</button><input type="file" id="bkFile" accept="application/json,.json" hidden></div>
+    <div id="bkPreview"></div>`);
+  $('#bkExport').onclick=async()=>{
+    const r=await api('/api/cmd',{cmd:'backup_export'}); if(!r.ok)return;
+    const data={...r.backup}; if($('#bkDevice').checked){const {updateSeen,budgetSeen,...p}=prefs;data.device_prefs=p}
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+    a.download=`claude-remoto-respaldo-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000); toast('Respaldo descargado');
+  };
+  $('#bkPick').onclick=()=>$('#bkFile').click();
+  $('#bkFile').onchange=async e=>{
+    const f=e.target.files[0]; e.target.value=''; if(!f)return;
+    let data; try{data=JSON.parse(await f.text())}catch(_){$('#bkPreview').innerHTML='<p class="note warn">El archivo no es un JSON válido.</p>';return}
+    if(!data||data.app!=='claude-remoto'){$('#bkPreview').innerHTML='<p class="note warn">El archivo no es un respaldo de Claude Remoto.</p>';return}
+    const count={rules:(data.rules||[]).length,templates:(data.templates||[]).length,jira:data.jira&&data.jira.url?1:0,budget:data.budget&&data.budget.limit?1:0,
+                 tabs:(data.tabs||[]).length,device:data.device_prefs?1:0};
+    const rows=Object.keys(BK_LABELS).filter(k=>count[k]).map(k=>`<div class="tts-row"><label for="bk_${k}">${BK_LABELS[k]} <small>(${count[k]})</small></label><input type="checkbox" id="bk_${k}" data-bk="${k}" checked></div>`).join('');
+    $('#bkPreview').innerHTML=`<p class="note">Respaldo del ${esc((data.exported||'').slice(0,10))}. Elige qué importar:</p>${rows||'<p class="note">El respaldo está vacío.</p>'}
+      <div class="tts-row"><label for="bkReplace">Reemplazar las reglas y plantillas actuales (si no, se agregan)</label><input type="checkbox" id="bkReplace"></div>
+      <p class="note">Las pestañas solo se agregan (nunca se cierran las existentes) y las carpetas que no existan en este PC se omiten.</p>
+      <div class="sec-actions"><button id="bkImport" ${rows?'':'disabled'}>⬆️ Importar</button></div><div id="bkResult"></div>`;
+    $('#bkImport').onclick=async()=>{
+      const sel=[...document.querySelectorAll('[data-bk]')].filter(c=>c.checked).map(c=>c.dataset.bk);
+      if($('#bkReplace').checked&&(sel.includes('rules')||sel.includes('templates'))&&!confirm('¿Reemplazar tus reglas y plantillas actuales por las del respaldo?'))return;
+      let msg=[];
+      if(sel.includes('device')){const keys=Object.keys(prefs);for(const k of keys)if(k!=='updateSeen'&&k!=='budgetSeen'&&k in data.device_prefs)prefs[k]=data.device_prefs[k];savePrefs();ttsPaint?.();paintTemplates?.();msg.push('preferencias de este dispositivo')}
+      const server=sel.filter(s=>s!=='device');
+      if(server.length){
+        const r=await api('/api/backup',{data,sections:server,mode:$('#bkReplace').checked?'replace':'merge'});
+        if(!r.ok){$('#bkResult').innerHTML=`<p class="note warn">${esc(r.error||'Error')}</p>`;return}
+        setStatus(r.status);
+        msg.push(...Object.entries(r.added).map(([k,v])=>`${BK_LABELS[k].split(' (')[0]}: ${v} nuevo${v===1?'':'s'}`));
+        if(r.skipped.length)$('#bkResult').innerHTML=`<p class="note warn">Omitidos:<br>${r.skipped.map(esc).join('<br>')}</p>`;
+      }
+      toast('Importado: '+(msg.join(' · ')||'nada'));
+      if(!document.querySelector('#bkResult .warn'))dlg.close();
+    };
+  };
+}
+
 // ---------- configuración de Jira ----------
 function jiraDialog(){
   const j=status.jira||{url:'',projects:[]};
@@ -1239,7 +1602,6 @@ function selectField(){   // deja seleccionado el primer {campo} para escribirlo
 }
 async function useTemplate(t){
   if(t.send&&!FIELD_RE.test(t.text)){
-    if(status.busy){insertText(t.text);paintTemplates();input.focus();toast('Claude está trabajando: la plantilla quedó en el cuadro');return}
     if(await send(t.text))toast('Enviado: '+t.name);   // incluye las capturas adjuntas, si hay
     return;
   }
@@ -1380,7 +1742,7 @@ function recTick(){
 function recEnd(){
   if(rec)clearInterval(rec.timer); rec=null; paintTemplates();
   $('#mic').classList.remove('rec'); $('#mic').textContent='🎤';
-  input.placeholder='Escribe una tarea…';
+  input.placeholder=idlePlaceholder();
 }
 function recStart(kind,stop){
   rec={kind,stop,t0:Date.now(),timer:null}; rec.timer=setInterval(recTick,500); recTick(); paintTemplates();
@@ -1404,7 +1766,7 @@ async function startWhisper(){
       if(r.ok){insertText(j.text);if(!j.text)toast('No se entendió nada; intenta de nuevo');input.focus()}
       else toast(j.error||`Error ${r.status} al transcribir`);
     }catch(_){toast('Sin conexión con el PC')}
-    finally{b.classList.remove('busy');b.disabled=false;b.textContent='🎤';input.placeholder='Escribe una tarea…'}
+    finally{b.classList.remove('busy');b.disabled=false;b.textContent='🎤';input.placeholder=idlePlaceholder()}
   };
   mr.start(1000);
   recStart('whisper',()=>{if(mr.state!=='inactive')mr.stop()});
@@ -1481,7 +1843,7 @@ document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
   else if(cmd==='status'){const j=await api('/api/cmd',{cmd});if(j.status){const s=j.status;
     showDialog(`<h3>ℹ️ Estado</h3><p>📁 <code>${esc(s.cwd)}</code></p><p>🧵 ${esc(s.session||'sesión nueva')}</p>
       <p>${s.busy?'⏳ Trabajando':'💤 Libre'} · decisiones pendientes: ${s.pending}</p><p>Gateway: <code>${esc(s.gateway)}</code></p>
-      <p>Aprobadas siempre: ${esc(s.always.join(', ')||'—')}</p>`)}}
+      <p>Aprobadas siempre: ${esc(s.always.join(', ')||'—')}</p><p class="note">Claude Remoto ${esc(s.version||'')}</p>`)}}
   else if(cmd==='sessions'){const j=await api('/api/cmd',{cmd});const list=j.sessions||[];
     showDialog('<h3>🧵 Sesiones recientes</h3>'+(list.length?'':'<p>No hay sesiones guardadas para esta carpeta.</p>'));
     list.forEach(s=>{const r=document.createElement('button');r.className='row';
@@ -1491,9 +1853,12 @@ document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
     const p=prompt('Carpeta de trabajo (dentro de: '+(j.roots||[]).join(', ')+')',j.cwd||'');
     if(p&&p!==j.cwd)api('/api/cmd',{cmd:'cd',arg:p})}
   else if(cmd==='alerts')alertsDialog();
+  else if(cmd==='usage')usageDialog();
   else if(cmd==='voice')voiceDialog();
   else if(cmd==='templates')templatesDialog();
   else if(cmd==='jira')jiraDialog();
+  else if(cmd==='backup')backupDialog();
+  else if(cmd==='export')exportDialog();
   else if(cmd==='rules')rulesDialog();
   else if(cmd==='security')securityDialog();
   else if(cmd==='logout'){await fetch('/logout',{method:'POST'});location.reload()}

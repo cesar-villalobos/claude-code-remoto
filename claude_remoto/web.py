@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from . import push
 from .agent import AGENTS, global_status
 from .api import ROUTES
 from .attachments import MAX_UPLOAD
@@ -23,6 +24,7 @@ from .auth import (
     token_ok,
     too_many_failures,
 )
+from .backup import MAX_BACKUP
 from .config import APP_DIR, CA_CERT, COOKIE, STATIC_FILES, UI_FILE, log
 from .hub import HUB
 from .sessions import SESSIONS, ua_label
@@ -204,7 +206,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
         url = urlparse(target)
         path = url.path
         # Cuerpos grandes solo para el audio de voz y las capturas, y solo con una sesión válida
-        big = {"/api/transcribe": MAX_AUDIO, "/api/send": MAX_UPLOAD}.get(path)
+        big = {"/api/transcribe": MAX_AUDIO, "/api/send": MAX_UPLOAD, "/api/backup": MAX_BACKUP}.get(path)
         limit = big if (big and method == "POST" and is_authed(headers, ip)) else MAX_BODY
         if length > limit:
             writer.write(http_response(413, "Contenido demasiado grande"))
@@ -301,7 +303,11 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
         REQUEST.set({"session": session, "ip": ip})
 
         if path == "/events" and method == "GET":
-            await sse(writer, session)
+            push.connected(session["id"], 1)   # con la app abierta, avisa la página (no Web Push)
+            try:
+                await sse(writer, session)
+            finally:
+                push.connected(session["id"], -1)
             return
 
         if path == "/api/audit.jsonl" and method == "GET":
@@ -315,6 +321,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
             return
 
         if path == "/api/poll" and method == "GET":
+            push.polled(session["id"])
             writer.write(json_response(200, await poll(url.query)))
             return
 

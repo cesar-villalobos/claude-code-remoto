@@ -24,6 +24,7 @@ Esto es lo que el proyecto **sí** intenta proteger:
 - **Solo red local:** se rechazan siempre las IPs públicas. El acceso desde fuera de casa es por VPN.
 - **Protección contra CSRF y clickjacking:** cabecera propia obligatoria en la API, Content-Security-Policy y `X-Frame-Options: DENY`.
 - **Aprobación humana:** cada herramienta no pre-aprobada requiere decisión explícita.
+- **Web Push opcional y sin datos:** si se activa en un dispositivo, el aviso va cifrado (RFC 8291) y solo dice «decisión» o «terminó»; el servidor solo envía a servicios de push conocidos (sin peticiones a la red interna).
 
 Y esto queda **fuera de su alcance** (responsabilidad de quien lo instala):
 - La seguridad del equipo anfitrión, de la cuenta de Claude Code y de las credenciales de los servidores MCP.

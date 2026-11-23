@@ -106,6 +106,12 @@ DECISION_TIMEOUT = int(os.getenv("DECISION_TIMEOUT_SECONDS", "900"))
 
 
 MODEL = os.getenv("CLAUDE_MODEL") or None
+# Modelos que se pueden elegir por pestaña. «default» = el que use Claude Code (settings o ANTHROPIC_MODEL).
+# Con un gateway, pon los nombres que acepte, p. ej.: CLAUDE_MODELS=default,claude-sonnet-5,claude-opus-5
+MODEL_LABELS = {"default": "Predeterminado", "sonnet": "Sonnet", "opus": "Opus", "haiku": "Haiku",
+                "opusplan": "Opus para planificar"}
+MODELS = [m.strip() for m in os.getenv("CLAUDE_MODELS", "default,sonnet,opus,haiku").split(",") if m.strip()] \
+    or ["default"]
 
 
 CORP_PROXY = os.getenv("CORP_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
@@ -162,6 +168,9 @@ if DEFAULT_MODE not in PERMISSION_MODES:
 
 # Respuestas en tiempo real: texto parcial de Claude mientras escribe
 STREAM_TEXT = os.getenv("STREAM_TEXT", "1") not in ("0", "false", "no")
+
+# Resumen de los archivos que cambió cada tarea, con su diff (0 = desactivado)
+CHANGES_SUMMARY = os.getenv("CHANGES_SUMMARY", "1") not in ("0", "false", "no")
 
 
 STREAM_INTERVAL = 0.1  # segundos entre actualizaciones del texto parcial  # largo máximo de un comentario de rechazo o de una respuesta libre
