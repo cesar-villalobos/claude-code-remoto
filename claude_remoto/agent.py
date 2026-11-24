@@ -26,8 +26,8 @@ from claude_agent_sdk.types import (
     ToolPermissionContext,
 )
 
-from . import __version__, budget, changes, usage
-from .attachments import content_blocks
+from . import __version__, budget, changes, rule_suggest, usage
+from .attachments import content_blocks, files_meta, with_files
 from .audit import REQUEST, audit
 from .config import (
     AUTO_APPROVE,
@@ -149,6 +149,7 @@ class Agent:
         self.stream: dict[str, Any] | None = None
         self.stream_msg_id: str | None = None
         self.finished_streams: list[dict[str, Any]] = []
+        self.final_texts: set[str] = set()   # respuestas definitivas de la tarea en curso
         self.last_stream_emit = 0.0
 
     def emit(self, type_: str, **data: Any) -> dict[str, Any] | None:
@@ -188,14 +189,24 @@ class Agent:
         for i, st in enumerate(self.finished_streams):
             if message_id is None or st["msg"] is None or st["msg"] == message_id:
                 return self.finished_streams.pop(i)
+        # A veces el CLI entrega el mensaje definitivo antes del content_block_stop: el bloque
+        # que se está escribiendo es el que corresponde (si no, quedaría duplicado al terminar)
+        st = self.stream
+        if st and st["text"] and (message_id is None or st["msg"] is None or st["msg"] == message_id):
+            self.stream = None
+            return st
         return None
 
     def close_streams(self) -> None:
         """Al terminar o interrumpir: lo ya escrito queda como mensaje definitivo."""
         pending = self.finished_streams + ([self.stream] if self.stream and self.stream["text"] else [])
         for st in pending:
-            self.emit("assistant", text=st["text"], replaces=st["sid"])
+            if st["text"].strip() in self.final_texts:   # ya llegó como respuesta definitiva: solo se quita la burbuja
+                self.emit("stream_drop", sid=st["sid"])
+            else:
+                self.emit("assistant", text=st["text"], replaces=st["sid"])
         self.stream, self.finished_streams, self.stream_msg_id = None, [], None
+        self.final_texts = set()
 
     def elapsed(self) -> float:
         """Segundos desde que empezó la tarea actual."""
@@ -280,6 +291,10 @@ class Agent:
             else (decision, "")
         if choice == "a":
             self.always_allow.add(tool_name)
+        if choice == "y":
+            offer = rule_suggest.on_approved(tool_name, data, self.cwd, self.rules)
+            if offer:   # lo aprobaste varias veces: ¿permitir siempre?
+                self.emit("rule_suggest", **offer)
         if choice in ("y", "a"):
             return PermissionResultAllow(updated_input=data)
         if comment:
@@ -451,10 +466,11 @@ class Agent:
         self.always_allow.clear()
         self.persist()
 
-    def submit(self, prompt: str, images: list[dict[str, Any]] | None = None) -> str:
+    def submit(self, prompt: str, images: list[dict[str, Any]] | None = None,
+               files: list[dict[str, Any]] | None = None) -> str:
         """«started», «queued» (Claude está trabajando: va a la cola), «full» (cola llena)
         o «limit» (se alcanzó el límite de gasto mensual)."""
-        images = images or []
+        images, files = images or [], files or []
         if budget.blocked():
             return "limit"
         thumbs = [i["thumb"] for i in images]
@@ -462,19 +478,24 @@ class Agent:
             if len(self.queue) >= MAX_QUEUE:
                 return "full"
             qid = secrets.token_hex(4)
-            self.queue.append({"qid": qid, "text": prompt, "images": images})
-            self.emit("queued", qid=qid, text=prompt, **({"images": thumbs} if images else {}))
+            self.queue.append({"qid": qid, "text": prompt, "images": images, "files": files})
+            self.emit("queued", qid=qid, text=prompt, **({"images": thumbs} if images else {}),
+                      **({"files": files_meta(files)} if files else {}))
             emit_status()
             return "queued"
-        self.start(prompt, images)
+        self.start(prompt, images, files=files)
         return "started"
 
-    def start(self, prompt: str, images: list[dict[str, Any]], qid: str | None = None) -> None:
+    def start(self, prompt: str, images: list[dict[str, Any]], qid: str | None = None,
+              files: list[dict[str, Any]] | None = None) -> None:
         thumbs = [i["thumb"] for i in images]
-        # en el historial: solo miniaturas; «qid» indica que salió de la cola
-        self.emit("user", text=prompt, **({"images": thumbs} if images else {}), **({"qid": qid} if qid else {}))
+        files = files or []
+        # en el historial: solo miniaturas y el nombre de los archivos; «qid» indica que salió de la cola
+        self.emit("user", text=prompt, **({"images": thumbs} if images else {}),
+                  **({"files": files_meta(files)} if files else {}), **({"qid": qid} if qid else {}))
         self.finishing = False
-        self.task = asyncio.create_task(self.run(prompt, images))
+        # el contenido de los archivos va solo a Claude (no queda en el historial ni en la auditoría)
+        self.task = asyncio.create_task(self.run(with_files(prompt, files), images))
 
     def next_from_queue(self) -> None:
         """Al terminar una tarea, sigue con el primer mensaje de la cola."""
@@ -487,7 +508,7 @@ class Agent:
             self.clear_queue("⛔ No se envió: se alcanzó el límite de gasto mensual")
             return
         item = self.queue.pop(0)
-        self.start(item["text"], item["images"], qid=item["qid"])
+        self.start(item["text"], item["images"], qid=item["qid"], files=item.get("files"))
 
     def unqueue(self, qid: str, label: str) -> bool:
         item = next((q for q in self.queue if q["qid"] == qid), None)
@@ -547,6 +568,8 @@ class Agent:
                                 st = None if msg.parent_tool_use_id else self.take_stream(msg.message_id)
                                 # el texto definitivo reemplaza a la burbuja parcial
                                 self.emit("assistant", text=block.text, **({"replaces": st["sid"]} if st else {}))
+                                if not msg.parent_tool_use_id:
+                                    self.final_texts.add(block.text.strip())
                             elif isinstance(block, ToolUseBlock):
                                 self.emit("tool", text=tool_trace(block.name, block.input or {}))
                                 audit("tool", tool=block.name, target=tool_trace(block.name, block.input or {}))

@@ -10,7 +10,18 @@ import secrets
 import time
 from typing import Any
 
-from . import attachments, backup, budget, export_md, jira, push, usage
+from . import (
+    attachments,
+    backup,
+    budget,
+    daily,
+    export_md,
+    jira,
+    push,
+    rule_suggest,
+    schedules,
+    usage,
+)
 from . import templates as tpl
 from .agent import (
     AGENTS,
@@ -53,26 +64,66 @@ async def api_send(body: dict[str, Any]) -> tuple[int, dict]:
     images, err = attachments.validate(body.get("images"))
     if err:
         return 400, {"error": err}
-    if not text and not images:
+    files, err = attachments.validate_texts(body.get("files"))
+    if err:
+        return 400, {"error": err}
+    if not text and not images and not files:
         return 400, {"error": "Mensaje vacío"}
     if len(text) > MAX_PROMPT:
         return 400, {"error": f"El mensaje admite hasta {MAX_PROMPT} caracteres"}
-    if not text:
+    if not text and files:
+        text = "Revisa el archivo adjunto." if len(files) == 1 and not images else "Revisa los archivos adjuntos."
+    elif not text:
         text = "Revisa la imagen adjunta." if len(images) == 1 else "Revisa las imágenes adjuntas."
     agent = AGENTS.get(body.get("tab"))
     if agent is None:
         return 404, {"error": "Esa sesión ya no existe"}
-    result = agent.submit(text, images)
+    result = agent.submit(text, images, files)
     if result == "full":
         return 409, {"error": f"La cola de esta sesión está llena ({MAX_QUEUE} mensajes)"}
     if result == "limit":
         audit("task_blocked", reason="spend_limit", tab=agent.name)   # sin el texto
         return 402, {"error": budget.blocked_message(), "budget": budget.info()}
     extra = {"images": len(images), "image_bytes": sum(i["bytes"] for i in images)} if images else {}
+    if files:   # solo nombres y tamaños, nunca el contenido
+        extra["files"] = ", ".join(f"{f['name']} ({f['bytes']} B)" for f in files)
     if result == "queued":
         extra["queued"] = True
     audit("task", prompt=text[:1000], cwd=agent.cwd, tab=agent.name, **extra)
     return 200, {"ok": True, "queued": result == "queued"}
+
+
+async def run_schedule(s: dict[str, Any], missed: bool = False, *, manual: bool = False) -> str:
+    """Envía la instrucción de una tarea programada a su pestaña, como si la hubieras escrito."""
+    agent = AGENTS.get(s["tab"])
+    if agent is None:
+        schedules.set_enabled(s["id"], False)
+        HUB.emit("info", text=f"⏰ «{s['name']}» se pausó: su pestaña ya no existe")
+        emit_status()
+        return "no_tab"
+    if missed:
+        agent.emit("info", text=f"⏰ «{s['name']}» no se ejecutó a su hora porque el equipo estaba apagado o dormido")
+        return "missed"
+    agent.emit("info", text=f"⏰ Tarea programada «{s['name']}»" + (" (ejecutada a mano)" if manual else ""))
+    result = agent.submit(s["text"])
+    if result == "limit":
+        agent.emit("info", text="⏰ No se envió: " + budget.blocked_message())
+    elif result == "full":
+        agent.emit("info", text=f"⏰ No se envió: la cola de esta pestaña está llena ({MAX_QUEUE} mensajes)")
+    audit("task", prompt=s["text"][:1000], cwd=agent.cwd, tab=agent.name, via="programada", schedule=s["name"],
+          result=result)
+    return result
+
+
+def daily_summary() -> dict[str, Any]:
+    return daily.build(HUB.history, {a.id: a.name for a in AGENTS})
+
+
+async def send_daily_summary() -> None:
+    """A la hora elegida: el resumen del día en el chat (y aviso push), solo si hubo actividad."""
+    summary = daily_summary()
+    if summary["tasks"] or summary["files"] or summary["approved"] or summary["rejected"]:
+        HUB.emit("daily_summary", **summary)
 
 
 def clean_text(value: Any) -> tuple[str, str | None]:
@@ -290,6 +341,56 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
         verb = "Aprobar siempre" if rule["action"] == "allow" else "Bloquear"
         HUB.emit("info", text=f"⚖️ Regla agregada: {verb} · {rule_label(rule)}")
         return 200, {"ok": True, "rule": rule, "rules": agent.rules}
+    elif cmd in ("rule_suggest_accept", "rule_suggest_later", "rule_suggest_never"):
+        offer = rule_suggest.take(str(arg or ""))
+        if offer is None:
+            return 404, {"error": "Esa sugerencia ya no está disponible"}
+        if cmd == "rule_suggest_accept":
+            rule, err = validate_rule({"action": "allow", **offer, "note": "sugerida"})
+            if err:
+                return 400, {"error": err}
+            if not any(r["action"] == "allow" and r["kind"] == rule["kind"] and r["pattern"] == rule["pattern"]
+                       for r in agent.rules):
+                agent.rules.append(rule)
+                save_state(STATE)
+            audit("rule_add", rule=rule_label(rule), action="allow", via="sugerencia")
+            label = f"✅ Regla creada: aprobar siempre «{rule['pattern']}»"
+        elif cmd == "rule_suggest_never":
+            rule_suggest.dismiss_forever(offer)
+            label = "🚫 No se volverá a sugerir"
+        else:
+            label = "⏭️ Ahora no"
+        HUB.emit("rule_suggest_done", ref=arg, label=label)
+        return 200, {"ok": True}
+    elif cmd == "sched_list":
+        return 200, {"ok": True, "items": [schedules.view(s) for s in schedules.items()], "now": time.time()}
+    elif cmd == "sched_save":
+        item, err = schedules.save(body, {a.id for a in AGENTS})
+        if err:
+            return 400, {"error": err}
+        audit("sched_save", name=item["name"], when=schedules.describe(item), tab=AGENTS.get(item["tab"]).name)
+        return 200, {"ok": True, "item": schedules.view(item)}
+    elif cmd in ("sched_delete", "sched_toggle", "sched_run"):
+        s = next((x for x in schedules.items() if x["id"] == arg), None)
+        if s is None:
+            return 404, {"error": "Esa tarea programada ya no existe"}
+        if cmd == "sched_delete":
+            schedules.delete(arg)
+            audit("sched_delete", name=s["name"])
+        elif cmd == "sched_toggle":
+            schedules.set_enabled(arg, not s.get("enabled", True))
+            audit("sched_toggle", name=s["name"], enabled=s["enabled"])
+        else:
+            return 200, {"ok": True, "result": await run_schedule(s, manual=True)}
+        return 200, {"ok": True, "items": [schedules.view(x) for x in schedules.items()]}
+    elif cmd == "daily_get":
+        return 200, {"ok": True, "summary": daily_summary(), "settings": daily.settings()}
+    elif cmd == "daily_set":
+        conf, err = daily.save(body.get("enabled"), body.get("at"))
+        if err:
+            return 400, {"error": err}
+        audit("daily_set", enabled=conf["enabled"], at=conf["at"])
+        return 200, {"ok": True, "settings": conf}
     elif cmd == "rule_del":
         rule = next((r for r in agent.rules if r["id"] == arg), None)
         if rule is None:

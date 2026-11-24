@@ -12,8 +12,9 @@ import ssl
 import sys
 from pathlib import Path
 
-from . import __version__, push, updates
+from . import __version__, daily, push, schedules, updates
 from .agent import AGENTS, emit_status
+from .api import run_schedule, send_daily_summary
 from .auth import is_local
 from .config import (
     BIND_HOST,
@@ -103,6 +104,8 @@ async def main() -> None:
         raise
     print_banner()
     checker = asyncio.create_task(updates.loop(emit_status))   # aviso de versión nueva (UPDATE_CHECK=0 lo apaga)
+    planner = asyncio.create_task(schedules.loop(run_schedule))   # tareas programadas
+    summarizer = asyncio.create_task(daily.loop(send_daily_summary))   # resumen del día
     if push.PUSH_ENABLED:
         HUB.listeners.append(push.on_event)   # avisos con la app cerrada
     elif not push.AVAILABLE:
@@ -112,6 +115,8 @@ async def main() -> None:
             await server.serve_forever()
         finally:
             checker.cancel()
+            planner.cancel()
+            summarizer.cancel()
             for agent in AGENTS:
                 await agent.stop()
                 await agent.close()

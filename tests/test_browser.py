@@ -1066,3 +1066,152 @@ def test_aviso_de_decision_en_otra_pestana(browser, make_server):
     cel.click("#log .card:not(.closed) .opt >> nth=0")
     pc.wait_for_function("!document.querySelector('#tabs .tab.waiting')")  # todo decidido: se apaga en todos lados
     ctx.close()
+
+
+def test_respuesta_no_se_repite_al_terminar(browser, make_server):
+    s = make_server("stream_temprano")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.fill("#input", "arregla el login")
+    page.click("#send")
+    page.wait_for_selector(".done")
+    page.wait_for_timeout(300)
+    assert page.locator(".msg:not(.user):has-text('corregí el login')").count() == 1
+    assert page.locator(".msg.streaming").count() == 0
+    page.reload()                                                          # y al recargar, tampoco
+    page.wait_for_selector(".done")
+    assert page.locator(".msg:not(.user):has-text('corregí el login')").count() == 1
+    ctx.close()
+
+
+def test_sugerir_regla(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    for i in range(2):
+        page.fill("#input", f"corre las pruebas {i}")
+        page.click("#send")
+        page.click(".card:not(.closed) .yes")
+        page.click(".card:not(.closed) .opt >> nth=0")
+        page.wait_for_function(f"document.querySelectorAll('.done').length>={i + 1}")
+    page.wait_for_selector(".rule-suggest:has-text('pytest -q*')")
+    page.click(".rule-suggest .yes")
+    page.wait_for_selector(".rule-suggest.closed:has-text('Regla creada')")
+    page.fill("#input", "otra vez")
+    page.click("#send")
+    page.wait_for_selector(".info:has-text('Aprobado por regla')")
+    ctx.close()
+
+
+def test_adjuntar_archivo_de_texto(browser, make_server, tmp_path):
+    s = make_server("eco")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    log = tmp_path / "app.log"
+    log.write_text("ERROR timeout en la base de datos\n")
+    env = tmp_path / ".env"
+    env.write_text("TOKEN=secreto\n")
+    page.set_input_files("#fileIn", [str(log), str(env)])
+    page.wait_for_selector("#attachBar .att.file:has-text('app.log')")
+    page.wait_for_selector("#toast:has-text('archivo de secretos')")
+    assert page.locator("#attachBar .att.file").count() == 1                 # el .env no se adjunta
+    page.fill("#input", "¿qué pasa?")
+    page.click("#send")
+    page.wait_for_selector(".msg.user .files:has-text('app.log')")
+    page.wait_for_selector(".msg:not(.user):has-text('ERROR timeout en la base de datos')")   # llegó a Claude
+    assert page.locator("#attachBar").is_hidden()
+    page.reload()
+    page.wait_for_selector(".msg.user .files:has-text('app.log')")
+    assert "ERROR timeout" not in page.inner_text(".msg.user")              # en el historial, solo el nombre
+    ctx.close()
+
+
+def test_buscar_en_todas_las_pestanas(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    page.fill("#input", "deploy de la API en Principal")
+    page.click("#send")
+    page.wait_for_selector(".card .yes")
+    page.click("#findBtn")
+    assert page.locator("#findAll").is_hidden()                            # con una sola pestaña no aparece
+    page.click("#findClose")
+    page.click("#tabs [data-tab-add]")
+    page.fill("#tabName", "Front")
+    page.click("#tabForm button[type=submit]")
+    page.wait_for_selector("#tabs .tab.on:has-text('Front')")
+    page.fill("#input", "el deploy del front falla")
+    page.click("#send")
+    page.wait_for_selector("#log .msg.user:has-text('front falla')")
+    page.click("#findBtn")
+    page.fill("#findInput", "deploy")
+    page.wait_for_function("document.querySelector('#findCount').textContent==='1/1'")   # solo esta pestaña
+    page.click("#findAll")
+    page.wait_for_function("document.querySelector('#findCount').textContent.startsWith('2/2 · Front')")
+    assert page.inner_text("#tabs .tab:has-text('Principal') .tfind") == "1"
+    page.press("#findInput", "Enter")                                      # salta a la otra pestaña
+    page.wait_for_selector("#tabs .tab.on:has-text('Principal')")
+    assert page.inner_text("#findCount") == "1/2 · Principal"
+    assert page.locator("#log mark.hit.cur").count() == 1                  # visible en la pestaña abierta
+    page.press("#findInput", "Escape")
+    assert page.locator("mark.hit").count() == 0 and page.locator("#tabs .tfind").count() == 0
+    page.click("#findBtn")                                                 # recuerda el modo «todas»
+    assert page.get_attribute("#findAll", "aria-pressed") == "true"
+    ctx.close()
+
+
+def test_tareas_programadas(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.on("dialog", lambda d: d.accept())
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    page.click("#menuBtn")
+    page.click("[data-cmd=schedules]")
+    page.click("#schNew")
+    page.fill("#schName", "Pruebas de la mañana")
+    page.fill("#schText", "corre las pruebas")
+    page.click(".sch-days label:has-text('S')")                            # agrega el sábado a lun-vie
+    page.fill("#schTime", "07:30")
+    page.click("#schForm button[type=submit]")
+    page.wait_for_selector("#schList .sched:has-text('Pruebas de la mañana')")
+    assert "lun, mar, mié, jue, vie, sáb a las 07:30" in page.inner_text("#schList")
+    assert "Próxima:" in page.inner_text("#schList")
+    page.click("#schList .sched [data-a=run]")                             # ejecutar ahora
+    page.wait_for_selector(".info:has-text('Tarea programada «Pruebas de la mañana»')")
+    page.wait_for_selector(".msg.user:has-text('corre las pruebas')")
+    page.click("#menuBtn")
+    page.click("[data-cmd=schedules]")
+    page.click("#schList .sched [data-a=toggle]")
+    page.wait_for_selector("#schList .sched.off:has-text('Pausada')")
+    page.click("#schList .sched [data-a=delete]")
+    page.wait_for_selector("#schList:has-text('Aún no hay')")
+    ctx.close()
+
+
+def test_resumen_de_hoy(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.fill("#input", "revisa ABC-123")
+    page.click("#send")
+    page.click(".card:not(.closed) .yes")
+    page.click(".card:not(.closed) .opt >> nth=0")
+    page.wait_for_selector(".done")
+    page.click("#menuBtn")
+    page.click("[data-cmd=daily]")
+    page.wait_for_selector(".daily-sum .ds-row")
+    text = page.inner_text(".daily-sum")
+    assert "1 tarea" in text and "1 aprobada" in text
+    page.check("#dsOn")
+    page.fill("#dsAt", "00:00")
+    page.click("#dsSave")
+    page.wait_for_selector("#toast:has-text('Resumen diario a las 00:00')")
+    ctx.close()
