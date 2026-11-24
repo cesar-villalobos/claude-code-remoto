@@ -257,6 +257,8 @@ def on_event(ev: dict[str, Any]) -> None:
         kind = "done" if ev.get("ok") else "error"
     elif t == "error":
         kind = "error"
+    elif t == "daily_summary":
+        kind = "summary"
     else:
         return
     try:

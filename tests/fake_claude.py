@@ -136,6 +136,25 @@ class FakeClient:
             yield text(f"Write: {type(r2).__name__}")
             yield result("44444444-4444-4444-4444-444444444444")
             return
+        if SCENARIO == "eco":   # devuelve lo que recibió Claude (para verificar los adjuntos)
+            await asyncio.sleep(0.3 * DELAY)
+            yield text("ECO:" + self.prompt)
+            yield result("99999999-9999-9999-9999-999999999999")
+            return
+        if SCENARIO == "stream_temprano":
+            # Como lo hace a veces el CLI: el mensaje definitivo llega ANTES del content_block_stop
+            def ev(e):
+                return StreamEvent(uuid="u", session_id="s", event=e)
+            yield ev({"type": "message_start", "message": {"id": "msg_9"}})
+            yield ev({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}})
+            for c in ["Listo: ", "corregí ", "el login."]:
+                await asyncio.sleep(0.2 * DELAY)
+                yield ev({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": c}})
+            yield AssistantMessage(content=[TextBlock(text="Listo: corregí el login.")], model="fake", message_id="msg_9")
+            yield ev({"type": "content_block_stop", "index": 0})
+            yield ev({"type": "message_stop"})
+            yield result("88888888-8888-8888-8888-888888888888")
+            return
         if SCENARIO == "stream":
             # Respuesta escrita por partes, como la API real con include_partial_messages
             def ev(e):
