@@ -198,7 +198,22 @@
   #tabs .tmark.busy{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite}
   #tabs .tmark.wait{color:var(--accent)}
   #tabs .tmark.new{color:var(--accent);font-size:16px;line-height:8px}
-  @media (prefers-reduced-motion:reduce){#tabs .tmark.busy{animation:none}}
+  /* Pestaña con una decisión pendiente: se nota aunque estés en otra */
+  #tabs .tab.waiting{border-color:#f0a020;background:color-mix(in srgb,#f0a020 22%,var(--bg));animation:tabwait 2s ease-in-out infinite}
+  #tabs .tab.waiting .tmark.wait{color:#c27a00;font-size:12px;font-weight:700}
+  #tabs .tab.waiting.on{animation:none}
+  /* «respira»: el ámbar se desvanece y vuelve, con un halo suave */
+  @keyframes tabwait{0%,100%{background:color-mix(in srgb,#f0a020 28%,var(--bg));box-shadow:0 0 0 0 color-mix(in srgb,#f0a020 45%,transparent)}
+                     50%{background:color-mix(in srgb,#f0a020 8%,var(--bg));box-shadow:0 0 0 5px color-mix(in srgb,#f0a020 0%,transparent)}}
+  #waitBar{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:0;border-bottom:1px solid var(--line);background:color-mix(in srgb,#f0a020 22%,var(--panel));color:var(--text);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+  #waitBar[hidden]{display:none}
+  /* aparece y desaparece con fundido y un leve deslizamiento */
+  #waitBar{max-height:80px;overflow:hidden;transition:opacity .35s ease,transform .35s ease,max-height .35s ease,padding .35s ease}
+  #waitBar.fading{opacity:0;transform:translateY(-6px);max-height:0;padding-top:0;padding-bottom:0;border-bottom-width:0}
+  #waitBar span{flex:1;min-width:0}
+  #waitBar b{white-space:nowrap}
+  #waitBar i{font-style:normal;color:#c27a00}
+  @media (prefers-reduced-motion:reduce){#tabs .tmark.busy,#tabs .tab.waiting{animation:none}#waitBar{transition:none}}
   body.dropping #log{outline:3px dashed var(--accent);outline-offset:-8px}
   #mic{min-width:48px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);font-size:20px}
   #mic[hidden]{display:none}
@@ -281,6 +296,7 @@
   <button class="icon" data-cmd="logout">🚪 Salir</button>
 </nav>
 <nav id="tabs" aria-label="Sesiones en paralelo"></nav>
+<button id="waitBar" class="fading" hidden aria-live="polite"><span id="waitText"></span><b>Ir →</b></button>
 <div id="findBar" hidden role="search">
   <input id="findInput" type="search" placeholder="Buscar en esta conversación…" aria-label="Buscar en esta conversación" autocomplete="off" enterkeyhint="search">
   <span id="findCount" aria-live="polite"></span>
@@ -430,22 +446,65 @@ function applyTabStatus(){
   const m=logs[activeTab]; if(m&&m.id!=='log'){showTab(activeTab,{scroll:false});return}
   paintTabs();
 }
+// Decisiones pendientes por pestaña, de la más antigua a la más nueva
+function pendingByTab(){
+  const m={};
+  for(const r of openCards){const t=cardTab[r];if(t)(m[t]=m[t]||[]).push(r)}
+  return m;
+}
+let waitSeen='';   // para desplazar la barra de pestañas solo cuando cambia lo pendiente
 function paintTabs(){
   const nav=$('#tabs'); nav.innerHTML='';
+  const pend=pendingByTab();
   tabsInfo.forEach(t=>{
-    const b=document.createElement('button'); b.className='tab'+(t.id===activeTab?' on':''); b.dataset.tab=t.id;
-    const waiting=[...openCards].some(r=>cardTab[r]===t.id);
-    const mark=waiting?'<span class="tmark wait" title="Esperando tu decisión">◆</span>'
+    const n=(pend[t.id]||[]).length, waiting=n>0;
+    const b=document.createElement('button'); b.className='tab'+(t.id===activeTab?' on':'')+(waiting?' waiting':''); b.dataset.tab=t.id;
+    const mark=waiting?`<span class="tmark wait" title="Esperando tu decisión">◆${n>1?n:''}</span>`
       :t.busy?'<span class="tmark busy" title="Trabajando"></span>'
       :unread[t.id]?'<span class="tmark new" title="Novedades">•</span>':'';
     b.innerHTML=mark+`<span class="tname">${esc(t.name)}</span>`;
-    b.title=`${t.name} · ${t.cwd}`+(t.id===activeTab?' · toca para renombrar o cerrar':'');
+    b.title=`${t.name} · ${t.cwd}`+(waiting?` · ${n} decisión${n>1?'es':''} pendiente${n>1?'s':''}`:'')+(t.id===activeTab?' · toca para renombrar o cerrar':'');
+    if(waiting)b.setAttribute('aria-label',`${t.name}: esperando tu decisión`);
     b.onclick=()=>t.id===activeTab?tabMenu(t):showTab(t.id);
     nav.appendChild(b);
   });
   const add=document.createElement('button'); add.className='tab add'; add.textContent='＋'; add.dataset.tabAdd='1';
   add.title='Nueva sesión en paralelo'; add.disabled=tabsInfo.length>=(status.max_tabs||6); add.onclick=newTabDialog;
   nav.appendChild(add);
+  paintWaitBar(pend);
+}
+// Barra «◆ … espera tu decisión → Ir» cuando lo pendiente está en otra pestaña
+let waitFade=null;
+function fadeWaitBar(show){
+  const bar=$('#waitBar'); clearTimeout(waitFade);
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(show){
+    if(!bar.hidden&&!bar.classList.contains('fading'))return;
+    bar.hidden=false; void bar.offsetHeight;   // fuerza el estado inicial para que la transición se vea
+    bar.classList.remove('fading');
+  }else{
+    if(bar.hidden)return;
+    bar.classList.add('fading');
+    waitFade=setTimeout(()=>{bar.hidden=true},reduce?0:360);   // se oculta del todo al terminar el fundido
+  }
+}
+function paintWaitBar(pend=pendingByTab()){
+  const bar=$('#waitBar');
+  const others=tabsInfo.filter(t=>t.id!==activeTab&&pend[t.id]);
+  const show=multiTab()&&others.length>0;
+  fadeWaitBar(show);
+  const key=others.map(t=>t.id+':'+pend[t.id].length).join(',');
+  if(key&&key!==waitSeen){   // algo nuevo: que la pestaña quede a la vista en la barra
+    const el=document.querySelector(`#tabs .tab[data-tab="${CSS.escape(others[0].id)}"]`);
+    el?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});
+  }
+  waitSeen=key;
+  if(!show)return;
+  const total=others.reduce((a,t)=>a+pend[t.id].length,0);
+  $('#waitText').innerHTML='<i aria-hidden="true">◆</i> '+esc(others.length===1
+    ?`«${others[0].name}» espera tu decisión`+(total>1?` (${total})`:'')
+    :`${others.length} pestañas esperan tu decisión: ${others.map(t=>t.name).join(', ')}`);
+  bar.onclick=()=>focusCard(pend[others[0].id][0]);   // la más antigua de la primera pestaña
 }
 function newTabDialog(){
   showDialog(`<h3>🗂️ Nueva sesión en paralelo</h3>

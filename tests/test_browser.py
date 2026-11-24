@@ -1033,3 +1033,36 @@ def test_seccion_web_push(browser, make_server):
         page.wait_for_selector("#pushToggle:has-text('Activar en este dispositivo')")
         assert "cifrado" in text or "cifrado" in page.inner_text("#pushBox")
     ctx.close()
+
+
+def test_aviso_de_decision_en_otra_pestana(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    pc, cel = ctx.new_page(), ctx.new_page()
+    pc.goto(f"{s.base}/?token={TOKEN}")
+    pc.wait_for_selector("#input")
+    cel.goto(f"{s.base}/")
+    cel.wait_for_selector("#tabs .tab.on:has-text('Principal')")
+    assert cel.locator("#waitBar").is_hidden()
+    pc.click("#tabs [data-tab-add]")
+    pc.fill("#tabName", "Front")
+    pc.click("#tabForm button[type=submit]")
+    pc.wait_for_selector("#tabs .tab.on:has-text('Front')")
+    pc.fill("#input", "tarea en Front")
+    pc.click("#send")
+    pc.wait_for_selector("#log .card .yes")
+    # el celular sigue en «Principal»: la pestaña Front se marca y aparece la barra
+    cel.wait_for_selector("#tabs .tab.waiting:has-text('Front')")
+    cel.wait_for_selector("#waitBar:not([hidden]):not(.fading):has-text('«Front» espera tu decisión')")
+    assert cel.locator("#tabs .tab.waiting").count() == 1 and "Principal" in cel.inner_text("#tabs .tab.on")
+    assert pc.locator("#waitBar").is_hidden()                              # en el PC ya estás en esa pestaña
+    cel.click("#waitBar")                                                  # te lleva a la decisión
+    cel.wait_for_selector("#tabs .tab.on:has-text('Front')")
+    cel.wait_for_selector("#log .card .yes")
+    cel.wait_for_selector("#waitBar", state="hidden")                      # se va con un fundido
+    cel.click("#log .card:not(.closed) .yes")
+    cel.wait_for_selector("#log .card:not(.closed) .opt")                  # luego una pregunta: sigue esperando
+    assert cel.locator("#tabs .tab.waiting:has-text('Front')").count() == 1
+    cel.click("#log .card:not(.closed) .opt >> nth=0")
+    pc.wait_for_function("!document.querySelector('#tabs .tab.waiting')")  # todo decidido: se apaga en todos lados
+    ctx.close()
