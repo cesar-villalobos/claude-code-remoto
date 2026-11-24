@@ -80,6 +80,10 @@ def to_markdown(events: list[dict[str, Any]], *, name: str, cwd: str, tools: boo
         flush_tools()
         if t == "user":
             out += [f"## 🧑 Tú · {when}", "", str(e.get("text", "")).strip() or "_(sin texto)_"]
+            names = [str(f.get("name", "")) for f in e.get("files") or [] if isinstance(f, dict)]
+            if names:
+                out.append(f"\n_(archivo{'s' if len(names) > 1 else ''} adjunto{'s' if len(names) > 1 else ''}: "
+                           + ", ".join(_code(x) for x in names) + ", sin el contenido)_")
             n = len(e.get("images") or [])
             if n:
                 out.append(f"\n_({n} captura{'s' if n > 1 else ''} adjunta{'s' if n > 1 else ''}, no incluida{'s' if n > 1 else ''})_")

@@ -25,12 +25,13 @@ const PUSH_TEXT = {
   done: ['Claude terminó una tarea', 'Abre Claude Remoto para ver el resultado.'],
   error: ['Una tarea terminó con error', 'Abre Claude Remoto para ver qué pasó.'],
   test: ['Claude Remoto · prueba', 'Así llegarán los avisos con la app cerrada.'],
+  summary: ['Resumen del día', 'Abre Claude Remoto para ver lo que hizo Claude hoy.'],
 };
 self.addEventListener('push', (e) => {
   let m = {};
   try { m = e.data ? e.data.json() : {}; } catch (_) { /* aviso sin datos: genérico */ }
   const [title, body] = PUSH_TEXT[m.k] || PUSH_TEXT.decision;
-  const tag = m.k === 'decision' && m.ref ? 'cr-' + m.ref : m.k === 'test' ? 'cr-test' : 'cr-done';
+  const tag = m.k === 'decision' && m.ref ? 'cr-' + m.ref : m.k === 'test' ? 'cr-test' : m.k === 'summary' ? 'cr-summary' : 'cr-done';
   e.waitUntil(self.registration.showNotification(title, {
     body, tag, renotify: true, icon: '/icon.svg', badge: '/icon.svg',
     requireInteraction: m.k === 'decision', vibrate: [200, 100, 200],

@@ -79,6 +79,7 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
   - Al importar eliges qué secciones traer y si agregarlas a lo actual o reemplazarlo. Todo se valida igual que si lo crearas a mano.
   - Las pestañas solo se agregan, y las carpetas que no existen en ese PC se omiten con aviso.
 - **Buscar en la conversación** (🔍 o Ctrl+F / ⌘+F): busca en el historial de la pestaña abierta, sin importar mayúsculas ni tildes. Resalta cada coincidencia y muestra cuántas hay. Con ▲ ▼, o con Enter y Mayús+Enter, saltas entre ellas, partiendo por la más reciente. La búsqueda se hace en tu navegador: no se envía nada al servidor.
+  - Con varias pestañas, 🗂️ busca **en todas**: cada pestaña muestra cuántas coincidencias tiene, el contador indica en cuál está la actual y, al saltar a una coincidencia de otra pestaña, esa pestaña se abre. El modo elegido se recuerda en el dispositivo.
 - **Exportar a Markdown** (☰ → 📝): descarga o copia la conversación de la pestaña abierta como un `.md`, por ejemplo para pegarla en un ticket o en la documentación.
   - Incluye tus mensajes, las respuestas de Claude con su formato, y el resumen de cada tarea (duración, costo y tokens).
   - Opcionalmente incluye las herramientas usadas y las decisiones con lo que respondiste.
@@ -93,6 +94,20 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
   - En un repositorio git aparece todo lo que cambió durante la tarea, también lo hecho con comandos (un formateador, `sed`, `npm install`…). Los cambios que ya tenías antes de la tarea no se muestran. Solo se lee el repositorio, nunca se modifica.
   - Fuera de git aparecen los archivos editados con las herramientas de edición de Claude.
   - Los archivos binarios o muy grandes aparecen sin diff. Se desactiva con `CHANGES_SUMMARY=0`.
+- **Sugerir reglas:** si apruebas dos veces el mismo comando (por ejemplo `npm test`) o la misma herramienta MCP, aparece «⚖️ ¿Permitir siempre?» con el patrón exacto. Con un toque se crea la regla, y la próxima vez se aprueba sola.
+  - Nunca se sugiere algo riesgoso: borrar, mover, instalar, publicar, hacer `push` o `reset`, `sudo`, `curl`, ejecutar código con `-c`, ni comandos con `&&`, `;` o `|`. Tampoco ediciones de archivos.
+  - «Ahora no» la vuelve a ofrecer tras otras dos aprobaciones; «No volver a sugerir» la descarta para siempre.
+  - Se configura con `RULE_SUGGEST_AFTER` (aprobaciones antes de sugerir; 0 = desactivado).
+- **Adjuntar archivos de texto** (📎): además de capturas, puedes adjuntar logs, código o configuración (`.log`, `.txt`, `.json`, `.yaml`, `.py`…) para que Claude los analice. Hasta 5 archivos por tarea, de 200 KB cada uno.
+  - El contenido va **solo a Claude**: en el chat, el historial y la auditoría queda únicamente el nombre y el tamaño.
+  - Nunca se adjuntan archivos de secretos (`.env`, `.pem`, `.key`, claves SSH, `credentials.json`…), aunque los elijas por error.
+- **Tareas programadas** (☰ → ⏰ Programadas): envían una instrucción a una pestaña a la hora que elijas, por ejemplo «corre las pruebas y resume las que fallan» de lunes a viernes a las 8:00, o una sola vez en una fecha. Puedes partir desde una plantilla.
+  - Se comportan como si la hubieras escrito tú: si Claude está trabajando, van a la cola, y respetan el límite de gasto. **Cada permiso sigue pidiendo tu aprobación**: si nadie responde, se rechaza.
+  - Usan la hora del PC. Si el equipo estaba apagado o dormido a esa hora, no se ejecutan después; se avisa en el chat.
+  - Desde la lista puedes ejecutar una ahora (▶️), pausarla, editarla o eliminarla. Hasta 20; la auditoría registra cada cambio y cada ejecución.
+- **Resumen del día** (☰ → 📊 Resumen de hoy): tareas hechas y con error, decisiones aprobadas y rechazadas, archivos cambiados, costo, tokens y tiempo, en total y por pestaña.
+  - Si lo activas, llega solo al chat a la hora que elijas (hora del PC), los días con actividad. Si tienes Web Push, también llega un aviso genérico. El valor inicial se puede fijar con `DAILY_SUMMARY_AT=18:00`.
+  - No incluye textos de las tareas ni de las respuestas.
 - **Diff en las tarjetas de edición:** antes de aprobar un `Edit`, `MultiEdit` o `Write` ves el cambio como en GitHub: líneas quitadas en rojo, agregadas en verde, con números de línea reales y contexto, leídos del archivo en tu PC. Los cambios largos aparecen plegados con «Ver todo». Si no se puede leer el archivo (por ejemplo, porque es binario o muy grande), se muestra igual el antes y el después, sin números de línea.
 - **Rechazar con comentario:** con «💬 Rechazar con comentario» le explicas a Claude qué hacer distinto (por ejemplo, «usa `make test` en vez de `pytest`»). Claude recibe el motivo y propone otra forma de continuar, en vez de detenerse. En las preguntas, «✏️ Otra respuesta» permite escribir una respuesta libre en vez de elegir una opción. Todos tus dispositivos ven el comentario en la tarjeta.
 - **Sesiones en paralelo** (pestañas bajo la barra superior): por ejemplo una por proyecto o por ticket, para que Claude trabaje en una mientras revisas otra.
@@ -323,6 +338,9 @@ Para usarlo fuera de casa, usa una Raspberry Pi (o un PC) como puente de Tailsca
 | `budget.py` | Límite de gasto mensual |
 | `changes.py` | Resumen de los archivos que cambió cada tarea |
 | `push.py` | Web Push: cifrado, VAPID, suscripciones y envío de avisos genéricos |
+| `rule_suggest.py` | Sugerir reglas tras aprobaciones repetidas |
+| `schedules.py` | Tareas programadas |
+| `daily.py` | Resumen del día |
 | `backup.py` | Exportar e importar la configuración |
 | `attachments.py` | Validación de capturas adjuntas y bloques de imagen para Claude |
 | `voice.py` | Transcripción local de la voz con Whisper |
@@ -353,6 +371,10 @@ El proyecto tiene pruebas automáticas que usan un **Claude Code simulado** (`te
 | `test_limite.py` | Límite de gasto: aviso, pausa de tareas nuevas y de la cola, continuar este mes, validación y mes en curso |
 | `test_cambios.py` | Resumen de cambios: git (también lo hecho con comandos y sin los cambios previos), fuera de git, binarios y desactivado |
 | `test_push.py` | Web Push: cifrado con el vector del RFC 8291, firma VAPID, solo servicios de push conocidos, aviso genérico y a quién se envía |
+| `test_sugerir_reglas.py` | Sugerir reglas: qué se sugiere y qué nunca, umbral, «ahora no», «no volver a sugerir» y flujo completo |
+| `test_adjuntar_texto.py` | Archivos de texto: validación, secretos, formato para Claude, que llegue a Claude y que no quede en el historial ni en la auditoría |
+| `test_programadas.py` | Tareas programadas: próxima ejecución, validación, ejecución a su hora, ejecutar ahora y ejecuciones perdidas |
+| `test_resumen_diario.py` | Resumen del día: conteos por pestaña, solo el día en curso, sin textos, cuándo se envía y configuración |
 | `test_jira.py` | Enlaces a Jira: configuración, validación y valores de `.env` |
 | `test_plantillas.py` | Plantillas: ejemplos, edición, validación, orden, límite y persistencia |
 | `test_voz.py` | Voz: motor según la configuración, transcripción con Whisper simulado, límites y protección del audio |

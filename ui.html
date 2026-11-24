@@ -34,6 +34,9 @@
   #findBar button{min-width:36px;min-height:36px}
   mark.hit{background:#ffe066;color:#000;border-radius:2px}
   mark.hit.cur{background:#ff9f1a;outline:2px solid #ff9f1a}
+  #findAll[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent)}
+  #findAll[hidden]{display:none}
+  #tabs .tfind{flex:none;font-size:11px;padding:0 5px;border-radius:8px;background:#ffe066;color:#000}
   #cwdbar{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 12px;border-bottom:1px solid var(--line)}
   #cwd{flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #modeBtn{flex:none;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
@@ -157,6 +160,11 @@
   #attachBar .att img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
   #attachBar .att button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--bad);color:#fff;font-size:12px;line-height:22px;padding:0}
   #attachBar .count{align-self:center;color:var(--muted);font-size:12px;white-space:nowrap}
+  #attachBar .att.file{display:flex;align-items:center;gap:6px;height:56px;max-width:220px;padding:0 26px 0 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:12px}
+  #attachBar .att.file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #attachBar .att.file small{color:var(--muted);white-space:nowrap}
+  .msg .files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+  .msg .files span{display:inline-flex;gap:4px;align-items:center;padding:3px 8px;border-radius:8px;border:1px solid var(--line);font-size:12px;background:color-mix(in srgb,var(--bg) 70%,transparent)}
   .msg.user.queued{opacity:.75;border:1px dashed rgba(255,255,255,.6)}
   .msg.user.queued.dropped{opacity:.45;text-decoration:line-through}
   .msg.user .qbar{margin-top:6px;font-size:12px;display:flex;align-items:center;gap:8px;text-decoration:none}
@@ -166,6 +174,23 @@
   .msg .thumbs .nothumb{font-size:28px}
   #updateBar{display:flex;align-items:center;gap:10px;padding:6px 12px;font-size:13px;background:color-mix(in srgb,var(--accent) 14%,var(--panel));border-bottom:1px solid var(--line)}
   #updateBar[hidden]{display:none}
+  .sched{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+  .sched .sch-main{flex:1;min-width:0}
+  .sched .sch-main b{display:block}
+  .sched .sch-main small{display:block;color:var(--muted)}
+  .sched.off .sch-main{opacity:.55}
+  .sched .sch-act{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+  .sched .sch-act button{min-width:36px;min-height:36px}
+  .sch-days{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}
+  .sch-days label{display:inline-flex;align-items:center;justify-content:center;min-width:38px;min-height:34px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .sch-days input{display:none}
+  .sch-days input:checked+span{font-weight:700;color:var(--accent)}
+  .sch-days label:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+  .daily-sum .ds-row{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0;font-size:13px}
+  .daily-sum .ds-row b{font-variant-numeric:tabular-nums}
+  .daily-sum table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  .daily-sum td,.daily-sum th{padding:4px 6px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+  .daily-sum td:first-child,.daily-sum th:first-child{text-align:left;white-space:normal}
   #budgetBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;font-size:13px;border-bottom:1px solid var(--line);background:color-mix(in srgb,#f0a020 18%,var(--panel))}
   #budgetBar.over{background:color-mix(in srgb,#e5484d 20%,var(--panel))}
   #budgetBar[hidden]{display:none}
@@ -286,9 +311,11 @@
   <button class="icon" data-cmd="export">📝 Exportar a Markdown</button>
   <button class="icon" data-cmd="status">ℹ️ Estado</button>
   <button class="icon" data-cmd="usage">💲 Uso</button>
+  <button class="icon" data-cmd="daily">📊 Resumen de hoy</button>
   <button class="icon" data-cmd="alerts">🔔 Alertas</button>
   <button class="icon" data-cmd="voice">🎤 Voz</button>
   <button class="icon" data-cmd="templates">⚡ Plantillas</button>
+  <button class="icon" data-cmd="schedules">⏰ Programadas</button>
   <button class="icon" data-cmd="jira">🎫 Jira</button>
   <button class="icon" data-cmd="rules">⚖️ Reglas</button>
   <button class="icon" data-cmd="security">🔐 Seguridad</button>
@@ -299,6 +326,7 @@
 <button id="waitBar" class="fading" hidden aria-live="polite"><span id="waitText"></span><b>Ir →</b></button>
 <div id="findBar" hidden role="search">
   <input id="findInput" type="search" placeholder="Buscar en esta conversación…" aria-label="Buscar en esta conversación" autocomplete="off" enterkeyhint="search">
+  <button class="icon" id="findAll" title="Buscar en todas las pestañas" aria-label="Buscar en todas las pestañas" aria-pressed="false" hidden>🗂️</button>
   <span id="findCount" aria-live="polite"></span>
   <button class="icon" id="findPrev" title="Anterior (Mayús+Enter)" aria-label="Anterior">▲</button>
   <button class="icon" id="findNext" title="Siguiente (Enter)" aria-label="Siguiente">▼</button>
@@ -323,8 +351,8 @@
 <div id="attachBar" hidden aria-label="Capturas adjuntas"></div>
 <div id="tpls" hidden aria-label="Plantillas"></div>
 <footer>
-  <button id="attachBtn" title="Adjuntar captura o foto" aria-label="Adjuntar captura o foto">📎</button>
-  <input type="file" id="fileIn" accept="image/*" multiple hidden>
+  <button id="attachBtn" title="Adjuntar captura, foto o archivo de texto" aria-label="Adjuntar captura, foto o archivo de texto">📎</button>
+  <input type="file" id="fileIn" multiple hidden accept="image/*,text/*,.log,.txt,.md,.json,.csv,.tsv,.yaml,.yml,.xml,.html,.css,.js,.ts,.tsx,.jsx,.py,.java,.kt,.go,.rs,.rb,.php,.cs,.c,.h,.cpp,.sql,.sh,.ps1,.bat,.ini,.cfg,.conf,.toml,.properties,.gradle,.diff,.patch">
   <textarea id="input" rows="1" placeholder="Escribe una tarea…" enterkeyhint="send"></textarea>
   <button id="mic" title="Dictar por voz" aria-label="Dictar por voz" hidden>🎤</button>
   <button id="send" title="Enviar">➤</button>
@@ -433,7 +461,7 @@ function showTab(tab,{scroll=true}={}){
   ensureHint(m); m.querySelector('.hint')?.setAttribute('id','hint');
   setStatus({});
   if(scroll)log.scrollTop=log.scrollHeight;
-  if(typeof findOpen==='function'&&findOpen())findRun();   // la búsqueda sigue en la pestaña nueva
+  if(typeof findOpen==='function'&&findOpen()&&!allTabsMode())findRun();   // la búsqueda sigue en la pestaña nueva
 }
 function applyTabStatus(){
   if(Array.isArray(status.tabs))tabsInfo=status.tabs;
@@ -462,7 +490,8 @@ function paintTabs(){
     const mark=waiting?`<span class="tmark wait" title="Esperando tu decisión">◆${n>1?n:''}</span>`
       :t.busy?'<span class="tmark busy" title="Trabajando"></span>'
       :unread[t.id]?'<span class="tmark new" title="Novedades">•</span>':'';
-    b.innerHTML=mark+`<span class="tname">${esc(t.name)}</span>`;
+    const fc=typeof findCounts!=='undefined'&&allTabsMode()&&findOpen()?findCounts[t.id]:0;
+    b.innerHTML=mark+`<span class="tname">${esc(t.name)}</span>`+(fc?`<span class="tfind" title="${fc} coincidencia${fc>1?'s':''}">${fc}</span>`:'');
     b.title=`${t.name} · ${t.cwd}`+(waiting?` · ${n} decisión${n>1?'es':''} pendiente${n>1?'s':''}`:'')+(t.id===activeTab?' · toca para renombrar o cerrar':'');
     if(waiting)b.setAttribute('aria-label',`${t.name}: esperando tu decisión`);
     b.onclick=()=>t.id===activeTab?tabMenu(t):showTab(t.id);
@@ -671,6 +700,11 @@ function setStatus(s){
   $('#cwd').textContent='📁 '+(status.cwd||'')+(status.session?'  ·  🧵 '+status.session.slice(0,8):'  ·  sesión nueva');
 }
 function idlePlaceholder(){return status.busy?'Claude trabaja: lo que envíes queda en cola…':'Escribe una tarea…'}
+const kb=n=>n<1024?`${n} B`:`${(n/1024).toFixed(n<10240?1:0)} KB`;
+function filesHtml(files){
+  if(!files||!files.length)return '';
+  return `<div class="files">${files.map(f=>`<span title="El contenido se envió a Claude; no se guarda en el historial">📄 ${esc(f.name)} <small>${kb(f.bytes)}${f.lines?` · ${f.lines} líneas`:''}</small></span>`).join('')}</div>`;
+}
 function thumbsHtml(images){
   const th=(images||[]).map(t=>t?`<img src="data:image/jpeg;base64,${esc(t)}" alt="Captura adjunta">`:'<span class="nothumb" title="Captura adjunta">🖼️</span>').join('');
   return th?`<div class="thumbs">${th}</div>`:'';
@@ -757,6 +791,21 @@ function renderChanges(ev,live){
     a.appendChild(b); c.appendChild(a);
   }
   add(c,live);
+}
+// «Lo aprobaste N veces: ¿permitir siempre?» — crea una regla con un toque
+function renderRuleSuggest(ev,live){
+  const what=ev.kind==='bash'?'el comando':'la herramienta';
+  const c=div('card rule-suggest',`<h3>⚖️ ¿Permitir siempre?</h3>
+    <p>Aprobaste ${ev.count} veces ${what} <code>${esc(ev.pattern)}</code>. Con una regla, los próximos se aprueban solos (puedes quitarla en ☰ → ⚖️ Reglas).</p>`);
+  c.id='rs-'+ev.ref;
+  const a=div('actions','');
+  [['accept','✅ Permitir siempre','yes'],['later','Ahora no',''],['never','No volver a sugerir','no']].forEach(([k,t,cl])=>{
+    const b=document.createElement('button');b.textContent=t;b.className=cl;
+    b.onclick=async()=>{a.querySelectorAll('button').forEach(x=>x.disabled=true);
+      const r=await api('/api/cmd',{cmd:'rule_suggest_'+k,arg:ev.ref});
+      if(!r.ok){a.querySelectorAll('button').forEach(x=>x.disabled=false);if(r.error)c.querySelector('.actions')?.remove()}};
+    a.appendChild(b)});
+  c.appendChild(a); add(c,live);
 }
 function renderPlan(ev,live){
   const c=div('card',`<h3>${esc(ev.title)}</h3><div class="plan-body">${md(ev.plan||'')}</div>`);
@@ -860,15 +909,16 @@ function renderIn(ev,live){
   switch(ev.type){
     case 'user':{
       if(ev.qid)document.getElementById('q-'+ev.qid)?.remove();   // salió de la cola: pasa a su lugar real
-      add(div('msg user',thumbsHtml(ev.images)+esc(ev.text)),true);if(live&&ev.tab===activeTab&&!ev.qid)ttsStop();break;}
+      add(div('msg user',thumbsHtml(ev.images)+filesHtml(ev.files)+esc(ev.text)),true);if(live&&ev.tab===activeTab&&!ev.qid)ttsStop();break;}
     case 'queued':{
-      const m=div('msg user queued',thumbsHtml(ev.images)+esc(ev.text)+'<div class="qbar">⏳ En cola · se envía cuando Claude termine <button class="qx" aria-label="Quitar de la cola">✕</button></div>');
+      const m=div('msg user queued',thumbsHtml(ev.images)+filesHtml(ev.files)+esc(ev.text)+'<div class="qbar">⏳ En cola · se envía cuando Claude termine <button class="qx" aria-label="Quitar de la cola">✕</button></div>');
       m.id='q-'+ev.qid; m.querySelector('.qx').onclick=()=>api('/api/cmd',{cmd:'queue_remove',arg:ev.qid,tab:ev.tab});
       add(m,true);break;}
     case 'unqueued':{
       const m=document.getElementById('q-'+ev.qid); if(!m)break;
       m.classList.add('dropped'); const b=m.querySelector('.qbar'); if(b)b.textContent=ev.label||'Quitado de la cola';break;}
     case 'stream': renderStream(ev,live);break;
+    case 'stream_drop': document.getElementById('s-'+ev.sid)?.remove();break;   // ya llegó como respuesta definitiva
     case 'assistant':{
       const partial=ev.replaces&&document.getElementById('s-'+ev.replaces);
       if(partial){partial.classList.remove('streaming');partial.removeAttribute('id');partial.innerHTML=md(ev.text);linkify(partial)}
@@ -876,6 +926,7 @@ function renderIn(ev,live){
       if(live&&(!ev.tab||ev.tab===activeTab))ttsSay(ev.text);
       break;}
     case 'tool': add(div('tool','› '+esc(ev.text)),live);break;
+    case 'daily_summary': add(dailyCard(ev),live);break;
     case 'changes': renderChanges(ev,live);break;
     case 'info': add(div('info',esc(ev.text)),live);break;
     case 'error': add(div('msg error','💥 '+esc(ev.text)),live);if(live)alertDone(ev,false);break;
@@ -883,6 +934,11 @@ function renderIn(ev,live){
     case 'perm': renderPerm(ev,live);if(live&&!decided[ev.ref])ttsNotice((ev.tool==='ExitPlanMode'?'Claude propone un plan':'Claude necesita tu aprobación')+where(ev)+'.');break;
     case 'question': renderQuestion(ev,live);if(live&&!decided[ev.ref])ttsNotice('Claude tiene una pregunta'+where(ev)+'.');break;
     case 'decided': decided[ev.ref]=ev.label;closeCard(ev.ref,ev.label);closeNotif(ev.ref);break;
+    case 'rule_suggest': renderRuleSuggest(ev,live);break;
+    case 'rule_suggest_done':{
+      const c=document.getElementById('rs-'+ev.ref); if(!c)break;
+      c.classList.add('closed'); c.querySelector('.actions')?.remove();
+      if(!c.querySelector('.result'))c.appendChild(div('result',esc(ev.label)));break;}
     case 'status': setStatus(ev);break;
     case 'revoked': if(ev.session&&ev.session===mySession)location.reload();break;
     case 'reset': resync();break;   // el historial se borró: recargar desde el servidor
@@ -892,25 +948,36 @@ function renderIn(ev,live){
 // ---------- buscar en el historial de la pestaña ----------
 // Todo en el navegador, sobre lo que ya está cargado: no se envía nada al servidor.
 // Ignora mayúsculas y tildes («accion» encuentra «Acción»).
-let findHits=[], findIdx=-1, findTimer=null;
+let findHits=[], findTabsOf=[], findIdx=-1, findTimer=null, findCounts={};
+let findAll=false; try{findAll=localStorage.getItem('cr_findAll')==='1'}catch(_){}
+const allTabsMode=()=>findAll&&multiTab();
 const findOpen=()=>!$('#findBar').hidden;
 const fold=c=>{const f=c.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();return f.length===1?f:c.toLowerCase()};
 function findClear(){
   document.querySelectorAll('mark.hit').forEach(m=>{const p=m.parentNode;p.replaceChild(document.createTextNode(m.textContent),m);p.normalize()});
-  findHits=[];
+  findHits=[]; findTabsOf=[]; findCounts={};
 }
 function findRun(keep){
   const q=[...$('#findInput').value.trim()].map(fold).join('');
   const prev=keep&&findHits[findIdx]?findIdx:-1;
   findClear();
-  if(q.length<2){findIdx=-1;paintFind();return}
-  const walker=document.createTreeWalker(log,NodeFilter.SHOW_TEXT,{acceptNode:n=>{
-    const p=n.parentElement;
-    if(!p||p.closest('button,.qbar,script,style')||!n.nodeValue.trim())return NodeFilter.FILTER_REJECT;
-    return p.getClientRects().length?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;   // solo lo visible
-  }});
-  const nodes=[]; while(walker.nextNode())nodes.push(walker.currentNode);
-  for(const n of nodes){
+  if(q.length<2){findIdx=-1;paintFind();paintTabs();return}
+  // En una pestaña o en todas (en el orden de la barra). Las otras están ocultas: ahí se descarta
+  // solo lo que esté oculto dentro de la propia conversación (p. ej. un diff plegado).
+  const scopes=allTabsMode()?tabsInfo.map(t=>[t.id,logs[t.id]]).filter(([,m])=>m):[[activeTab,log]];
+  const nodes=[];
+  for(const [tab,m] of scopes){
+    const visible=!m.hidden;
+    const walker=document.createTreeWalker(m,NodeFilter.SHOW_TEXT,{acceptNode:n=>{
+      const p=n.parentElement;
+      if(!p||p.closest('button,.qbar,script,style')||!n.nodeValue.trim())return NodeFilter.FILTER_REJECT;
+      if(visible)return p.getClientRects().length?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;   // solo lo visible
+      const hid=p.closest('[hidden]');
+      return (hid===m||!hid)&&!p.closest('details:not([open]) > :not(summary)')?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;
+    }});
+    while(walker.nextNode())nodes.push([tab,walker.currentNode]);
+  }
+  for(const [tab,n] of nodes){
     const text=n.nodeValue, folded=[...text].map(fold);   // un carácter doblado por cada original
     const chars=[...text]; const parts=[]; let last=0;
     const hay=folded.join('');
@@ -923,25 +990,37 @@ function findRun(keep){
     const frag=document.createDocumentFragment();
     for(const [a,b] of parts){
       if(a>last)frag.appendChild(document.createTextNode(chars.slice(last,a).join('')));
-      const m=document.createElement('mark');m.className='hit';m.textContent=chars.slice(a,b).join('');frag.appendChild(m);findHits.push(m);last=b;
+      const m=document.createElement('mark');m.className='hit';m.textContent=chars.slice(a,b).join('');frag.appendChild(m);
+      findHits.push(m);findTabsOf.push(tab);findCounts[tab]=(findCounts[tab]||0)+1;last=b;
     }
     if(last<chars.length)frag.appendChild(document.createTextNode(chars.slice(last).join('')));
     n.parentNode.replaceChild(frag,n);
   }
-  findIdx=findHits.length?(prev>=0?Math.min(prev,findHits.length-1):findHits.length-1):-1;   // por defecto, lo más reciente
+  // por defecto, lo más reciente de la pestaña abierta (o de todas, si ahí no hay)
+  const lastHere=findTabsOf.lastIndexOf(activeTab);
+  findIdx=findHits.length?(prev>=0?Math.min(prev,findHits.length-1):lastHere>=0?lastHere:findHits.length-1):-1;
   paintFind(!keep);
+  paintTabs();   // cuántas coincidencias hay en cada pestaña
 }
 function paintFind(scroll=true){
   findHits.forEach((m,i)=>m.classList.toggle('cur',i===findIdx));
   const q=$('#findInput').value.trim();
-  $('#findCount').textContent=!q||q.length<2?'':findHits.length?`${findIdx+1}/${findHits.length}`:'0';
+  const where=allTabsMode()&&findTabsOf[findIdx]?` · ${tabName(findTabsOf[findIdx])}`:'';
+  $('#findCount').textContent=!q||q.length<2?'':findHits.length?`${findIdx+1}/${findHits.length}${where}`:'0';
   $('#findPrev').disabled=$('#findNext').disabled=findHits.length<2;
-  if(scroll&&findHits[findIdx])findHits[findIdx].scrollIntoView({block:'center'});
+  const b=$('#findAll'); b.hidden=!multiTab(); b.setAttribute('aria-pressed',String(findAll));
+  b.title=findAll?'Buscando en todas las pestañas (toca para buscar solo en esta)':'Buscar en todas las pestañas';
+  if(scroll&&findHits[findIdx]){
+    const tab=findTabsOf[findIdx];
+    if(tab&&tab!==activeTab)showTab(tab,{scroll:false});   // la coincidencia está en otra pestaña: se abre esa
+    findHits[findIdx].scrollIntoView({block:'center'});
+  }
 }
+$('#findAll').onclick=()=>{findAll=!findAll;try{localStorage.setItem('cr_findAll',findAll?'1':'0')}catch(_){};findRun();$('#findInput').focus()};
 function findStep(d){if(!findHits.length)return;findIdx=(findIdx+d+findHits.length)%findHits.length;paintFind()}
 function findLater(){clearTimeout(findTimer);findTimer=setTimeout(()=>findRun(true),300)}   // llegó algo nuevo
-function openFind(){$('#findBar').hidden=false;const i=$('#findInput');i.focus();i.select();if(i.value)findRun()}
-function closeFind(){clearTimeout(findTimer);findClear();$('#findBar').hidden=true;$('#findCount').textContent=''}
+function openFind(){$('#findBar').hidden=false;paintFind(false);const i=$('#findInput');i.focus();i.select();if(i.value)findRun()}
+function closeFind(){clearTimeout(findTimer);findClear();$('#findBar').hidden=true;$('#findCount').textContent='';paintTabs()}
 $('#findBtn').onclick=()=>findOpen()?closeFind():openFind();
 $('#findClose').onclick=closeFind;
 $('#findPrev').onclick=()=>findStep(-1);
@@ -1434,7 +1513,7 @@ input.addEventListener('input',()=>{autosize();paintTemplates();cmdSel=0;paintCo
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!('ontouchstart' in window)){e.preventDefault();send()}});
 async function send(textOverride){
   const fromInput=textOverride===undefined, t=(fromInput?input.value:textOverride).trim();
-  if((!t&&!attached.length)||sending)return false;
+  if((!t&&!attached.length&&!attachedTexts.length)||sending)return false;
   sending=true; $('#send').disabled=true;
   if(attached.length)toast(`Enviando ${attached.length===1?'la captura':attached.length+' capturas'}…`);
   // Se vacía al tiro: así lo que escribas mientras se envía (p. ej. el siguiente mensaje a la cola) no se borra
@@ -1442,7 +1521,8 @@ async function send(textOverride){
   if(fromInput){input.value='';autosize()}
   try{
     const had=attached.length;
-    const j=await api('/api/send',{text:t,images:attached.map(a=>({media_type:a.media_type,data:a.data,thumb:a.thumb}))});
+    const j=await api('/api/send',{text:t,images:attached.map(a=>({media_type:a.media_type,data:a.data,thumb:a.thumb})),
+                                   files:attachedTexts.map(f=>({name:f.name,text:f.text}))});
     if(had&&j.ok)$('#toast').style.display='none';   // quita «Enviando…»; si falló, queda el error de api()
     if(!j.ok){if(fromInput&&!input.value){input.value=typed;autosize()}return false}
     clearAttachments(); paintTemplates(); return true;
@@ -1471,22 +1551,44 @@ async function prepImage(file){
   bmp.close?.();
   return {media_type:blob.type,data:await blobB64(blob),thumb:await blobB64(thumb),url:URL.createObjectURL(thumb)};
 }
+// Archivos de texto: se leen en el navegador; el contenido va solo a Claude
+const MAX_TEXT_FILES=5, MAX_TEXT_BYTES=200*1024;
+const TEXT_EXT=/\.(log|txt|md|json|csv|tsv|ya?ml|xml|html?|css|m?[jt]sx?|py|java|kt|go|rs|rb|php|cs|c|h|cpp|sql|sh|ps1|bat|ini|cfg|conf|toml|properties|gradle|diff|patch)$/i;
+const SECRET_FILE=/(^\.env(\..*)?$|\.(pem|key|p12|pfx|jks|keystore|kdbx)$|^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$|^\.?netrc$|^\.npmrc$|^\.pypirc$|^credentials(\.json)?$)/i;
+let attachedTexts=[];
+const isText=f=>f.type.startsWith('text/')||/^application\/(json|xml|x-yaml|yaml|x-sh|javascript|sql)/.test(f.type)||TEXT_EXT.test(f.name);
+async function addTextFile(f){
+  if(attachedTexts.length>=MAX_TEXT_FILES){toast(`Máximo ${MAX_TEXT_FILES} archivos de texto por tarea`);return}
+  if(SECRET_FILE.test(f.name)){toast(`«${f.name}» parece un archivo de secretos: no se adjunta`);return}
+  if(f.size>MAX_TEXT_BYTES){toast(`«${f.name}» supera los ${MAX_TEXT_BYTES/1024} KB`);return}
+  const text=await f.text();
+  if(text.includes('\u0000')){toast(`«${f.name}» no es un archivo de texto`);return}
+  attachedTexts.push({name:f.name,text,bytes:new Blob([text]).size});
+}
 async function addFiles(files){
-  const imgs=[...files].filter(f=>f&&f.type.startsWith('image/'));
-  if(!imgs.length){toast('Solo se pueden adjuntar imágenes');return}
+  const all=[...files].filter(Boolean);
+  for(const f of all.filter(f=>!f.type.startsWith('image/'))){
+    if(SECRET_FILE.test(f.name))toast(`«${f.name}» parece un archivo de secretos: no se adjunta`);
+    else if(isText(f))await addTextFile(f); else toast(`«${f.name}»: solo se pueden adjuntar imágenes o archivos de texto`);
+  }
+  const imgs=all.filter(f=>f.type.startsWith('image/'));
   for(const f of imgs){
     if(attached.length>=MAX_ATTACH){toast(`Máximo ${MAX_ATTACH} capturas por tarea`);break}
     try{attached.push(await prepImage(f))}catch(e){toast('No se pudo usar la imagen: '+(e.message||e))}
   }
   paintAttachments();
 }
-function clearAttachments(){attached.forEach(a=>URL.revokeObjectURL(a.url));attached=[];paintAttachments()}
+function clearAttachments(){attached.forEach(a=>URL.revokeObjectURL(a.url));attached=[];attachedTexts=[];paintAttachments()}
 function paintAttachments(){
-  const bar=$('#attachBar'); bar.hidden=!attached.length; bar.innerHTML='';
+  const bar=$('#attachBar'); bar.hidden=!attached.length&&!attachedTexts.length; bar.innerHTML='';
+  attachedTexts.forEach((f,i)=>{const d=document.createElement('div');d.className='att file';
+    d.innerHTML=`📄 <span>${esc(f.name)}</span><small>${kb(f.bytes)}</small><button aria-label="Quitar ${esc(f.name)}">✕</button>`;
+    d.querySelector('button').onclick=()=>{attachedTexts.splice(i,1);paintAttachments()};bar.appendChild(d)});
   attached.forEach((a,i)=>{const d=document.createElement('div');d.className='att';
     d.innerHTML=`<img src="${a.url}" alt="Captura ${i+1}"><button aria-label="Quitar captura ${i+1}">✕</button>`;
     d.querySelector('button').onclick=()=>{URL.revokeObjectURL(a.url);attached.splice(i,1);paintAttachments()};bar.appendChild(d)});
-  if(attached.length){const n=document.createElement('span');n.className='count';n.textContent=`${attached.length}/${MAX_ATTACH} · se envían con la tarea`;bar.appendChild(n)}
+  if(attached.length||attachedTexts.length){const n=document.createElement('span');n.className='count';
+    n.textContent=(attached.length?`${attached.length}/${MAX_ATTACH} · `:'')+'se envían con la tarea';bar.appendChild(n)}
 }
 $('#attachBtn').onclick=()=>$('#fileIn').click();
 $('#fileIn').onchange=e=>{addFiles(e.target.files);e.target.value=''};
@@ -1615,6 +1717,100 @@ function backupDialog(){
       toast('Importado: '+(msg.join(' · ')||'nada'));
       if(!document.querySelector('#bkResult .warn'))dlg.close();
     };
+  };
+}
+
+// ---------- tareas programadas ----------
+const SCH_DAYS=['L','M','X','J','V','S','D'];
+const fmtWhen=ts=>{if(!ts)return '—';const d=new Date(ts*1000);
+  return d.toLocaleDateString('es',{weekday:'short',day:'numeric',month:'short'})+' '+d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})};
+async function schedulesDialog(){
+  const j=await api('/api/cmd',{cmd:'sched_list'}); if(!j.ok)return;
+  const tname=id=>tabName(id)||'(pestaña cerrada)';
+  const rows=j.items.map(s=>`<div class="sched${s.enabled?'':' off'}" data-id="${esc(s.id)}">
+      <div class="sch-main"><b>${esc(s.name)}</b><small>${esc(s.summary)} · 🗂️ ${esc(tname(s.tab))}</small>
+        <small>${s.enabled?(s.next?'Próxima: '+esc(fmtWhen(s.next)):'Sin próximas ejecuciones'):'⏸️ Pausada'}${s.last_run?' · última: '+esc(fmtWhen(s.last_run)):''}</small></div>
+      <div class="sch-act"><button data-a="run" title="Ejecutar ahora" aria-label="Ejecutar ahora">▶️</button>
+        <button data-a="toggle" title="${s.enabled?'Pausar':'Activar'}" aria-label="${s.enabled?'Pausar':'Activar'}">${s.enabled?'⏸️':'⏯️'}</button>
+        <button data-a="edit" title="Editar" aria-label="Editar">✏️</button><button data-a="delete" title="Eliminar" aria-label="Eliminar">🗑️</button></div></div>`).join('');
+  showDialog(`<h3>⏰ Tareas programadas</h3>
+    <p class="note">Envían una instrucción a una pestaña a la hora que elijas, con la hora de este PC. Si Claude está trabajando, va a la cola. <b>Los permisos siguen pidiendo tu aprobación</b>: si nadie responde, se rechazan. Si el PC está apagado a esa hora, no se ejecuta (se avisa en el chat).</p>
+    <div id="schList">${rows||'<p class="note">Aún no hay tareas programadas.</p>'}</div>
+    <div class="sec-actions"><button id="schNew">＋ Nueva tarea programada</button></div>`);
+  $('#schNew').onclick=()=>scheduleForm();
+  document.querySelectorAll('#schList .sched').forEach(row=>row.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+    const id=row.dataset.id, a=b.dataset.a, s=j.items.find(x=>x.id===id);
+    if(a==='edit')return scheduleForm(s);
+    if(a==='delete'&&!confirm(`¿Eliminar «${s.name}»?`))return;
+    const r=await api('/api/cmd',{cmd:'sched_'+a,arg:id});
+    if(r.ok&&a==='run'){toast(r.result==='started'?'Enviada':r.result==='queued'?'Enviada a la cola':'No se envió (ver el chat)');dlg.close();showTab(s.tab);return}
+    if(r.ok)schedulesDialog();
+  }));
+}
+function scheduleForm(s){
+  const repeat=!s||s.kind==='repeat', days=s?.days||[1,2,3,4,5];
+  const now=new Date(Date.now()+3600e3), pad=n=>String(n).padStart(2,'0');
+  const defAt=s?.at||`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
+  const tabsOpt=tabsInfo.map(t=>`<option value="${esc(t.id)}"${(s?.tab||activeTab)===t.id?' selected':''}>${esc(t.name)}</option>`).join('');
+  const tplOpt=templates.map((t,i)=>`<option value="${i}">${esc(t.name)}</option>`).join('');
+  showDialog(`<h3>${s?'✏️ Editar':'⏰ Nueva'} tarea programada</h3>
+    <form class="tpl-form" id="schForm">
+      <label for="schName">Nombre</label><input id="schName" maxlength="60" placeholder="p. ej. Pruebas de la mañana" value="${esc(s?.name||'')}">
+      <label for="schTab">Pestaña</label><select id="schTab">${tabsOpt}</select>
+      <label for="schText">Instrucción</label>
+      ${tplOpt?`<select id="schTpl" aria-label="Usar una plantilla"><option value="">— usar una plantilla —</option>${tplOpt}</select>`:''}
+      <textarea id="schText" rows="4" maxlength="5000" placeholder="p. ej. Corre las pruebas y resume las que fallan">${esc(s?.text||'')}</textarea>
+      <label>Cuándo</label>
+      <div class="sch-days" role="radiogroup"><label><input type="radio" name="schKind" value="repeat"${repeat?' checked':''}><span>Repetir</span></label>
+        <label><input type="radio" name="schKind" value="once"${repeat?'':' checked'}><span>Una vez</span></label></div>
+      <div id="schRepeat"><div class="sch-days">${SCH_DAYS.map((d,i)=>`<label title="${['lunes','martes','miércoles','jueves','viernes','sábado','domingo'][i]}"><input type="checkbox" value="${i+1}"${days.includes(i+1)?' checked':''}><span>${d}</span></label>`).join('')}</div>
+        <input id="schTime" type="time" value="${esc(s?.time||'08:00')}" aria-label="Hora"></div>
+      <div id="schOnce"><input id="schAt" type="datetime-local" value="${esc(defAt)}" aria-label="Fecha y hora"></div>
+      <p class="note warn" id="schErr"></p>
+      <div class="sec-actions"><button type="submit">Guardar</button><button type="button" id="schBack">Volver</button></div>
+    </form>`);
+  const sync=()=>{const r=document.querySelector('[name=schKind]:checked').value==='repeat';$('#schRepeat').hidden=!r;$('#schOnce').hidden=r};
+  document.querySelectorAll('[name=schKind]').forEach(x=>x.onchange=sync); sync();
+  const tpl=$('#schTpl'); if(tpl)tpl.onchange=()=>{const t=templates[+tpl.value];if(t){$('#schText').value=t.text;if(!$('#schName').value)$('#schName').value=t.name}tpl.value=''};
+  $('#schBack').onclick=()=>schedulesDialog();
+  $('#schForm').onsubmit=async e=>{e.preventDefault();
+    const kind=document.querySelector('[name=schKind]:checked').value;
+    const body={cmd:'sched_save',id:s?.id||'',name:$('#schName').value,target:$('#schTab').value,text:$('#schText').value,kind,
+      time:$('#schTime').value,days:[...document.querySelectorAll('#schRepeat input:checked')].map(x=>+x.value),at:$('#schAt').value,enabled:s?s.enabled:true};
+    const r=await api('/api/cmd',body);
+    if(!r.ok){$('#schErr').textContent=r.error||'No se pudo guardar';return}
+    toast(r.item.next?`Programada · próxima: ${fmtWhen(r.item.next)}`:'Guardada'); schedulesDialog();
+  };
+}
+
+// ---------- resumen del día ----------
+function dailyHtml(s){
+  const dur=s.duration?fmtElapsed(s.duration):'—';
+  const row=`<div class="ds-row"><span>🧩 <b>${s.tasks}</b> tarea${s.tasks===1?'':'s'}${s.failed?` (${s.failed} con error)`:''}</span>
+    <span>✅ <b>${s.approved}</b> aprobada${s.approved===1?'':'s'}</span><span>❌ <b>${s.rejected}</b> rechazada${s.rejected===1?'':'s'}</span>
+    <span>📝 <b>${s.files}</b> archivo${s.files===1?'':'s'} <small>+${s.add} −${s.del}</small></span>
+    <span>💲 <b>${usd(s.cost)}</b> · ${ktok(s.tokens)} tokens</span><span>⏱️ ${dur}</span></div>`;
+  const tabs=s.tabs.length>1?`<table><tr><th>Pestaña</th><th>Tareas</th><th>Archivos</th><th>Costo</th></tr>${s.tabs.map(t=>
+    `<tr><td>${esc(t.name)}${t.scheduled?' <small>⏰'+t.scheduled+'</small>':''}</td><td>${t.tasks}${t.failed?` <small>(${t.failed}⚠️)</small>`:''}</td><td>${t.files}</td><td>${usd(t.cost)}</td></tr>`).join('')}</table>`:'';
+  return row+tabs;
+}
+function dailyCard(ev){
+  const d=new Date(ev.day+'T12:00');
+  return div('card daily-sum',`<h3>📊 Resumen del día · ${esc(d.toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long'}))}</h3>${dailyHtml(ev)}`);
+}
+async function dailyDialog(){
+  const j=await api('/api/cmd',{cmd:'daily_get'}); if(!j.ok)return;
+  const s=j.summary, c=j.settings;
+  const empty=!s.tasks&&!s.files&&!s.approved&&!s.rejected;
+  showDialog(`<h3>📊 Resumen de hoy</h3>
+    <div class="daily-sum">${empty?'<p class="note">Hoy todavía no hay actividad.</p>':dailyHtml(s)}</div>
+    <h4>Enviarlo automáticamente</h4>
+    <div class="tts-row"><label for="dsOn">Resumen diario en el chat (y aviso con la app cerrada, si lo activaste)</label><input type="checkbox" id="dsOn"${c.enabled?' checked':''}></div>
+    <div class="budget-row"><label for="dsAt">a las</label><input id="dsAt" type="time" value="${esc(c.at)}"><button id="dsSave">Guardar</button></div>
+    <p class="note">Solo los días con actividad, con la hora de este PC. No incluye textos de las tareas ni de las respuestas.</p>`);
+  $('#dsSave').onclick=async()=>{
+    const r=await api('/api/cmd',{cmd:'daily_set',enabled:$('#dsOn').checked,at:$('#dsAt').value});
+    if(r.ok)toast(r.settings.enabled?`Resumen diario a las ${r.settings.at}`:'Resumen diario desactivado');
   };
 }
 
@@ -1915,8 +2111,10 @@ document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
   else if(cmd==='usage')usageDialog();
   else if(cmd==='voice')voiceDialog();
   else if(cmd==='templates')templatesDialog();
+  else if(cmd==='schedules')schedulesDialog();
   else if(cmd==='jira')jiraDialog();
   else if(cmd==='backup')backupDialog();
+  else if(cmd==='daily')dailyDialog();
   else if(cmd==='export')exportDialog();
   else if(cmd==='rules')rulesDialog();
   else if(cmd==='security')securityDialog();

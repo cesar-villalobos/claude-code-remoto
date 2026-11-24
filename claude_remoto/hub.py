@@ -16,7 +16,7 @@ SSE_QUEUE_MAX = 1000  # eventos en cola por navegador antes de soltarlo
 
 
 # Eventos de estado que no se guardan en el historial (se reemplazan unos a otros)
-EPHEMERAL_EVENTS = ("status", "stream", "revoked", "reset")
+EPHEMERAL_EVENTS = ("status", "stream", "stream_drop", "revoked", "reset")
 
 
 # Historial del chat en disco (sobrevive a reinicios)

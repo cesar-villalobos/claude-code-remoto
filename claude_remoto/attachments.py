@@ -1,7 +1,7 @@
-"""Capturas adjuntas a una tarea: se validan y se envían a Claude sin guardarse en disco.
+"""Capturas y archivos de texto adjuntos a una tarea: se validan y se envían a Claude sin guardarse.
 
-En el historial solo queda una miniatura pequeña (la genera el navegador) para verla
-en todos los dispositivos.
+En el historial solo queda una miniatura pequeña de cada captura (la genera el navegador) y, de
+los archivos de texto, su nombre y tamaño: el contenido va solo a Claude.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import binascii
 import os
+import re
 from typing import Any
 
 MAX_IMAGES = 5
@@ -74,3 +75,66 @@ def content_blocks(text: str, images: list[dict[str, Any]]) -> list[dict[str, An
     ]
     blocks.append({"type": "text", "text": text})
     return blocks
+
+
+# -- archivos de texto (logs, código, configuración…) -------------------------
+MAX_TEXT_FILES = 5
+MAX_TEXT_BYTES = 200 * 1024      # por archivo
+MAX_TEXT_TOTAL = 500 * 1024      # entre todos
+MAX_NAME = 100
+# Nunca se adjuntan archivos de secretos, aunque se elijan por error
+SECRET_NAME = re.compile(r"(^\.env(\..*)?$|\.(pem|key|p12|pfx|jks|keystore|kdbx)$|^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$|"
+                         r"^\.?netrc$|^\.npmrc$|^\.pypirc$|^credentials(\.json)?$)", re.I)
+
+
+def clean_name(value: Any) -> str:
+    name = re.sub(r"[\x00-\x1f\x7f]", "", os.path.basename(str(value or "").replace("\\", "/"))).strip()
+    return name[:MAX_NAME] or "archivo.txt"
+
+
+def validate_texts(files: Any) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """[{name, text}] → (archivos listos, error)."""
+    if files in (None, []):
+        return [], None
+    if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
+        return None, "Formato de archivos no válido"
+    if len(files) > MAX_TEXT_FILES:
+        return None, f"Máximo {MAX_TEXT_FILES} archivos de texto por tarea"
+    out, total = [], 0
+    for f in files:
+        name = clean_name(f.get("name"))
+        text = f.get("text")
+        if not isinstance(text, str):
+            return None, f"«{name}»: el contenido no es texto"
+        if SECRET_NAME.search(name):
+            return None, f"«{name}» parece un archivo de secretos: no se adjunta"
+        if "\x00" in text:
+            return None, f"«{name}» no es un archivo de texto"
+        size = len(text.encode("utf-8"))
+        if size > MAX_TEXT_BYTES:
+            return None, f"«{name}» supera los {MAX_TEXT_BYTES // 1024} KB"
+        total += size
+        if total > MAX_TEXT_TOTAL:
+            return None, f"Los archivos suman más de {MAX_TEXT_TOTAL // 1024} KB"
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        out.append({"name": name, "text": text, "bytes": size, "lines": text.count("\n") + (1 if text and not text.endswith("\n") else 0)})
+    return out, None
+
+
+def files_meta(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Lo que queda en el historial y la auditoría: nombre, tamaño y líneas (nunca el contenido)."""
+    return [{"name": f["name"], "bytes": f["bytes"], "lines": f["lines"]} for f in files]
+
+
+def with_files(text: str, files: list[dict[str, Any]]) -> str:
+    """El mensaje para Claude con cada archivo en su propio bloque de código."""
+    if not files:
+        return text
+    parts = [text]
+    for f in files:
+        body = f["text"].rstrip("\n")
+        fence = "`" * max(3, max((len(m) for m in re.findall(r"`{3,}", body)), default=0) + 1)
+        ext = os.path.splitext(f["name"])[1].lstrip(".").lower()
+        lang = ext if re.fullmatch(r"[a-z0-9+#-]{1,10}", ext or "") else ""
+        parts.append(f"Archivo adjunto «{f['name']}» ({f['lines']} líneas):\n{fence}{lang}\n{body}\n{fence}")
+    return "\n\n".join(parts)
