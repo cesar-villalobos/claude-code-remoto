@@ -1,6 +1,6 @@
 # Política de seguridad
 
-Claude Remoto permite controlar Claude Code, y por lo tanto **ejecutar comandos en el equipo donde corre**, desde un navegador. Un fallo de seguridad puede tener consecuencias serias, por eso agradecemos los reportes responsables.
+Mando permite controlar Claude Code, y por lo tanto **ejecutar comandos en el equipo donde corre**, desde un navegador. Un fallo de seguridad puede tener consecuencias serias, por eso agradecemos los reportes responsables.
 
 ## Cómo reportar una vulnerabilidad
 **No abras un issue público.** Usa el reporte privado de GitHub: pestaña **Security** → **Report a vulnerability**.

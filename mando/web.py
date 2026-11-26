@@ -55,11 +55,11 @@ SECURITY_HEADERS = {
 
 
 LOGIN_PAGE = """<!doctype html><html lang="es"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Claude Remoto</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Mando</title>
 <style>body{font-family:system-ui;background:#111;color:#eee;display:grid;place-items:center;height:100vh;margin:0}
 form{display:grid;gap:12px;width:min(320px,90vw)}input,button{font-size:16px;padding:12px;border-radius:10px;border:1px solid #333;background:#1c1c1e;color:#eee}
 button{background:#d97757;border:0;color:#fff;font-weight:600}p{color:#f88;margin:0}</style>
-<form method="post" action="/login"><h2>🔒 Claude Remoto</h2>%s
+<form method="post" action="/login"><h2>🔒 Mando</h2>%s
 <button>Entrar</button></form></html>"""
 
 
@@ -227,7 +227,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
             if CA_CERT and Path(CA_CERT).is_file():
                 # iOS reconoce este tipo y ofrece instalar el perfil; Android lo descarga
                 writer.write(http_response(200, Path(CA_CERT).read_bytes(), "application/x-x509-ca-cert",
-                                           {"Content-Disposition": 'attachment; filename="claude-remoto-ca.crt"'}))
+                                           {"Content-Disposition": 'attachment; filename="mando-ca.crt"'}))
             else:
                 writer.write(http_response(404, "CA no configurada (ver gen-certs.sh)"))
             return
@@ -313,7 +313,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
         if path == "/api/audit.jsonl" and method == "GET":
             data = AUDIT_FILE.read_bytes() if AUDIT_FILE.exists() else b""
             writer.write(http_response(200, data, "application/x-ndjson; charset=utf-8",
-                                       {"Content-Disposition": 'attachment; filename="claude-remoto-auditoria.jsonl"'}))
+                                       {"Content-Disposition": 'attachment; filename="mando-auditoria.jsonl"'}))
             return
 
         if path == "/api/session" and method == "GET":

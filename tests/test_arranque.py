@@ -18,9 +18,9 @@ def cli(tmp_path, *args, **env):
 
 
 @pytest.mark.parametrize("os_name,path,cmds", [
-    ("Linux", ".config/systemd/user/claude-remoto.service", ["systemctl --user enable --now claude-remoto.service"]),
-    ("Darwin", "Library/LaunchAgents/com.claude-remoto.server.plist", ["launchctl bootstrap gui/"]),
-    ("Windows", ".claude-remoto-task.xml", ["schtasks /Create /TN ClaudeRemoto /XML", "schtasks /Run /TN ClaudeRemoto"]),
+    ("Linux", ".config/systemd/user/mando.service", ["systemctl --user enable --now mando.service"]),
+    ("Darwin", "Library/LaunchAgents/com.mando.server.plist", ["launchctl bootstrap gui/"]),
+    ("Windows", ".mando-task.xml", ["schtasks /Create /TN Mando /XML", "schtasks /Run /TN Mando"]),
 ])
 def test_instalar_estado_quitar(tmp_path, os_name, path, cmds):
     r = cli(tmp_path, "--instalar-inicio", CR_AUTOSTART_OS=os_name, USERNAME="cesar", USERDOMAIN="OFICINA")
@@ -82,8 +82,8 @@ def test_registro_en_archivo(tmp_path):
     code = f"""
 import logging
 logging.disable(logging.NOTSET)   # las pruebas lo silencian por defecto
-from claude_remoto import app
-from claude_remoto.config import log
+from mando import app
+from mando.config import log
 app.log_to_file({str(tmp_path / 'logs' / 'cr.log')!r})
 log.info("hola desde el servicio")
 """

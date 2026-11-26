@@ -1,6 +1,6 @@
 # Acceso remoto con VPN (Tailscale + Raspberry Pi)
 
-Esta es la forma recomendada de usar Claude Remoto fuera de casa, **sin abrir puertos en el router** y sin instalar nada en el PC corporativo.
+Esta es la forma recomendada de usar Mando fuera de casa, **sin abrir puertos en el router** y sin instalar nada en el PC corporativo.
 
 ¿Prefieres usar un computador en vez de la Raspberry Pi, o conectarte desde un notebook? Ver **[vpn-tailscale-pc-mac.md](vpn-tailscale-pc-mac.md)**.
 
@@ -11,21 +11,21 @@ Celular (datos móviles, app Tailscale)
 Raspberry Pi en casa  ──── «subnet router» de 192.168.1.0/24
       │
       ▼
-PC con Claude Remoto  https://192.168.1.X:8765   (la misma dirección que usas en casa)
+PC con Mando  https://192.168.1.X:8765   (la misma dirección que usas en casa)
 ```
 
 - El celular "entra" a tu red de casa. Usas la **misma URL privada** de siempre y el certificado y la CA que ya instalaste siguen sirviendo.
-- La Raspberry Pi reenvía el tráfico con su propia IP (SNAT), así que Claude Remoto lo ve como una conexión de tu red local. No hace falta cambiar `ALLOWED_NETS`.
+- La Raspberry Pi reenvía el tráfico con su propia IP (SNAT), así que Mando lo ve como una conexión de tu red local. No hace falta cambiar `ALLOWED_NETS`.
 - Funciona aunque tu proveedor use CGNAT y con cualquier router, incluso los que solo traen cliente VPN (L2TP/PPTP) y no pueden actuar como servidor.
 - Tailscale coordina las conexiones desde sus servidores, pero el tráfico va cifrado de extremo a extremo. El plan Personal es gratuito.
 
-> Si antes abriste un puerto en el router para Claude Remoto, bórralo: con la VPN no hace falta.
+> Si antes abriste un puerto en el router para Mando, bórralo: con la VPN no hace falta.
 
 > **Atajo:** el script [`vpn/tailscale-subnet-router.sh`](../vpn/tailscale-subnet-router.sh) hace los pasos 2 a 4 de una vez: detecta tu red, instala Tailscale, activa el reenvío y anuncia la ruta. Cópialo a la Pi y ejecútalo con `sudo bash tailscale-subnet-router.sh`. Después sigue en el paso 5.
 
 ## 1. Preparar la Raspberry Pi
 - Usa Raspberry Pi OS (o Armbian/Debian en una Orange Pi). Conéctala por **cable** al router y déjala siempre encendida.
-- Recomendado: en el router, reserva por DHCP una IP fija para la Pi y otra para el PC donde corre Claude Remoto, así la URL no cambia.
+- Recomendado: en el router, reserva por DHCP una IP fija para la Pi y otra para el PC donde corre Mando, así la URL no cambia.
 - Actualiza el sistema:
   ```bash
   sudo apt update && sudo apt full-upgrade -y
@@ -65,7 +65,7 @@ En <https://login.tailscale.com/admin/machines>:
 ## 7. Probar
 1. En el teléfono, apaga el Wi-Fi y quédate con datos móviles.
 2. Con Tailscale activo, abre `https://192.168.1.X:8765`, con la IP del PC.
-3. Deberías ver Claude Remoto igual que en casa, con las alertas y notificaciones funcionando.
+3. Deberías ver Mando igual que en casa, con las alertas y notificaciones funcionando.
 
 Si no carga:
 - Revisa que la ruta esté aprobada (paso 5) y que la app del teléfono esté conectada.

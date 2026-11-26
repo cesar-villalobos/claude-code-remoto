@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .audit import audit
-from .config import DECISION_TIMEOUT
+from .config import DECISION_TIMEOUT, log
 from .hub import HUB
 
 
@@ -56,8 +56,25 @@ def tool_trace(tool_name: str, data: dict[str, Any]) -> str:
 async def wait_decision(pid: str) -> Any:
     try:
         return await asyncio.wait_for(PENDING[pid].future, timeout=DECISION_TIMEOUT)
+    except asyncio.CancelledError:
+        # La tarea se interrumpió con la tarjeta abierta (p. ej. una pregunta que llegó justo al
+        # detener): se cierra en todos los dispositivos para que no quede esperando para siempre
+        p = PENDING.get(pid)
+        if p is not None and (not p.future.done() or p.future.cancelled()):   # no se alcanzó a responder
+            HUB.emit("decided", ref=pid, label="⏹️ Cancelado", **({"tab": p.tab} if p.tab else {}))
+        raise
     finally:
-        PENDING.pop(pid, None)
+        if PENDING.pop(pid, None) is not None:
+            _status()
+
+
+def _status() -> None:
+    # import diferido: agent importa este módulo
+    from .agent import emit_status
+    try:
+        emit_status()
+    except Exception:  # noqa: BLE001 — avisar el estado nunca debe romper una decisión
+        log.exception("No se pudo avisar el estado")
 
 
 def resolve(pid: str, value: Any, label: str) -> bool:

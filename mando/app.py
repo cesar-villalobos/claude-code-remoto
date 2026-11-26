@@ -12,7 +12,7 @@ import ssl
 import sys
 from pathlib import Path
 
-from . import __version__, daily, push, schedules, updates
+from . import __version__, daily, migrate, push, schedules, updates, usage
 from .agent import AGENTS, emit_status
 from .api import run_schedule, send_daily_summary
 from .auth import is_local
@@ -62,7 +62,7 @@ def print_banner(show_token: bool | None = None) -> None:
     scheme = "https" if TLS_CERT else "http"
     if not show_token:
         ips = ", ".join(local_ips()) or "<IP-de-este-equipo>"
-        log.info("Claude Remoto escuchando en %s://%s:%s (carpeta %s). Para ver el enlace con token y el QR: "
+        log.info("Mando escuchando en %s://%s:%s (carpeta %s). Para ver el enlace con token y el QR: "
                  "python server.py --mostrar-acceso", scheme, ips, PORT,
                  ", ".join(f"{a.name}: {a.cwd}" for a in AGENTS))
         return
@@ -71,7 +71,15 @@ def print_banner(show_token: bool | None = None) -> None:
         f"{scheme}://<IP-de-este-equipo>:{PORT}{tok}"
     ]
     print("\n" + "=" * 64)
-    print(f" Claude Remoto {__version__} (LAN) listo. Abre en el celular (misma red Wi-Fi o por la VPN):")
+    print(f" Mando {__version__} (LAN) listo. Abre en el celular (misma red Wi-Fi o por la VPN):")
+    fixed = usage.fix_cumulative()
+    if fixed:
+        print(f" ✅ Se corrigió el costo de {fixed} tareas anteriores (se sumaba el total acumulado de la "
+              f"sesión). Copia del original: {usage.USAGE_FILE}.bak")
+    if migrate.MIGRATED:
+        print(" ✅ Se migraron tus datos de «Claude Remoto» al nombre nuevo: " + ", ".join(migrate.MIGRATED))
+    for w in migrate.WARNINGS:
+        print(" ⚠️  " + w)
     for u in private:
         print("   ", u)
     # En el propio equipo, localhost evita que el navegador pase por el proxy corporativo
@@ -98,7 +106,7 @@ async def main() -> None:
         server = await asyncio.start_server(handle, BIND_HOST, PORT, ssl=ssl_ctx, limit=MAX_BODY)
     except OSError as e:
         if e.errno in (errno.EADDRINUSE, 10048):  # 10048: Windows
-            raise SystemExit(f"El puerto {PORT} ya está en uso: probablemente Claude Remoto ya está corriendo "
+            raise SystemExit(f"El puerto {PORT} ya está en uso: probablemente Mando ya está corriendo "
                              "(¿arranque automático?). Mira el estado con: python server.py --estado-inicio\n"
                              "Para ver el enlace y el QR: python server.py --mostrar-acceso") from None
         raise
@@ -147,8 +155,8 @@ def log_to_file(path: str) -> None:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="server.py", description="Claude Remoto: control de Claude Code desde el celular.")
-    p.add_argument("--version", action="version", version=f"Claude Remoto {__version__}")
+    p = argparse.ArgumentParser(prog="server.py", description="Mando: control de Claude Code desde el celular.")
+    p.add_argument("--version", action="version", version=f"Mando {__version__}")
     p.add_argument("--mostrar-acceso", action="store_true", help="muestra el enlace con token y el QR, sin iniciar")
     p.add_argument("--instalar-inicio", action="store_true", help="arranque automático al iniciar sesión")
     p.add_argument("--quitar-inicio", action="store_true", help="quita el arranque automático")

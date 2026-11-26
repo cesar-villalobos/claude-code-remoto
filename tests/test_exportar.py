@@ -1,6 +1,6 @@
 """Exportar una conversación a Markdown."""
 
-from claude_remoto.export_md import slug, to_markdown
+from mando.export_md import slug, to_markdown
 
 T0 = 1_763_900_000.0
 

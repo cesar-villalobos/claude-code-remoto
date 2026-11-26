@@ -14,7 +14,7 @@ def py(tmp_path, code, **env):
 def test_cifrado_vector_rfc8291(tmp_path):
     out = py(tmp_path, """
 from cryptography.hazmat.primitives.asymmetric import ec
-from claude_remoto.push import encrypt, unb64u, b64u
+from mando.push import encrypt, unb64u, b64u
 priv = ec.derive_private_key(int.from_bytes(unb64u("yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw"), "big"), ec.SECP256R1())
 body = encrypt(unb64u("V2hlbiBJIGdyb3cgdXAsIEkgd2FudCB0byBiZSBhIHdhdGVybWVsb24"),
                unb64u("BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"),
@@ -31,7 +31,7 @@ import json
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
-from claude_remoto import push
+from mando import push
 h = push.vapid_header("https://fcm.googleapis.com/fcm/send/abc", now=1000)
 t, k = h.removeprefix("vapid t=").split(", k=")
 head, body, sig = t.split(".")
@@ -48,7 +48,7 @@ bad = ["http://fcm.googleapis.com/x", "https://10.0.0.5/x", "https://fcm.googlea
 print([push.allowed_endpoint(u) for u in ok], [push.allowed_endpoint(u) for u in bad])
 """)
     claims = json.loads(out[0])
-    assert claims == {"aud": "https://fcm.googleapis.com", "exp": 1000 + 12 * 3600, "sub": "mailto:claude-remoto@localhost"}
+    assert claims == {"aud": "https://fcm.googleapis.com", "exp": 1000 + 12 * 3600, "sub": "mailto:mando@localhost"}
     assert out[1] == "True"
     assert out[2] == "[True, True, True, True] [False, False, False, False, False, False, False, False]"
 
@@ -61,8 +61,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from claude_remoto import push
-from claude_remoto.sessions import SESSIONS
+from mando import push
+from mando.sessions import SESSIONS
 
 got = []
 class H(BaseHTTPRequestHandler):
@@ -127,7 +127,7 @@ def test_suscripcion_por_api(srv, tmp_path):
     out = run_python(tmp_path, """
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from claude_remoto.push import b64u
+from mando.push import b64u
 k = ec.generate_private_key(ec.SECP256R1()).public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
 print(b64u(k))
 """).stdout.strip()
@@ -151,7 +151,7 @@ def test_sin_cryptography_push_queda_desactivado(tmp_path):
     out = py(tmp_path, """
 import sys
 sys.modules["cryptography"] = None   # simula que no está instalado (solo para este módulo)
-from claude_remoto import push
+from mando import push
 print(push.AVAILABLE, push.PUSH_ENABLED, "cryptography" in push.DISABLED_REASON)
 import asyncio
 print(asyncio.run(push.notify("done")))

@@ -52,7 +52,7 @@ def enable(s, offset: int = 0) -> str:
 def test_vectores_rfc6238(tmp_path):
     # RFC 6238, apéndice B (SHA1): clave "12345678901234567890", últimos 6 dígitos
     code = """
-from claude_remoto import totp as s
+from mando import totp as s
 import json, base64
 k = base64.b32encode(b"12345678901234567890").decode()
 print(json.dumps([s.totp_code(k, t // 30) for t in (59, 1111111109, 1234567890, 2000000000)]

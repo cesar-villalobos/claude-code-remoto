@@ -2,7 +2,7 @@
 
 import pytest
 
-from claude_remoto import __version__
+from mando import __version__
 from conftest import TOKEN
 
 pytestmark = pytest.mark.browser
@@ -891,7 +891,7 @@ def test_respaldo_descargar_e_importar(browser, make_server, tmp_path):
     dl.value.save_as(path)
     import json as _json
     data = _json.loads(path.read_text())
-    assert data["app"] == "claude-remoto" and "device_prefs" in data and data["device_prefs"]["sound"] is True
+    assert data["app"] == "mando" and "device_prefs" in data and data["device_prefs"]["sound"] is True
     data["templates"].append({"name": "Desde el respaldo", "text": "hola", "send": True})
     data["device_prefs"]["tplBar"] = False
     path.write_text(_json.dumps(data))
@@ -965,7 +965,7 @@ def test_limite_de_gasto(browser, make_server, tmp_path):
     import time as _time
     home = tmp_path / "casa"
     home.mkdir()
-    (home / ".claude-remoto-usage.jsonl").write_text(_json.dumps({"ts": _time.time() - 5, "cost": 8.5}) + "\n")
+    (home / ".mando-usage.jsonl").write_text(_json.dumps({"ts": _time.time() - 5, "cost": 8.5}) + "\n")
     s = make_server("basic", HOME=str(home), STATE_FILE=str(home / "state.json"), CLAUDE_WORKDIR=str(home),
                     ALLOWED_ROOTS=str(home), SPEND_LIMIT_USD="10")
     ctx = new_context(browser, s)
@@ -1214,4 +1214,86 @@ def test_resumen_de_hoy(browser, make_server):
     page.fill("#dsAt", "00:00")
     page.click("#dsSave")
     page.wait_for_selector("#toast:has-text('Resumen diario a las 00:00')")
+    ctx.close()
+
+
+def test_detener_junto_al_cuadro_de_texto(browser, make_server):
+    s = make_server("detener_pregunta")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    assert page.locator("#stopBtn").is_hidden()                            # sin tarea, no aparece
+    assert page.locator("header #stopBtn").count() == 0                    # ya no está arriba
+    page.fill("#input", "algo largo")
+    page.click("#send")
+    page.wait_for_selector("footer #stopBtn:visible")
+    page.click("#stopBtn")
+    page.wait_for_selector(".info:has-text('Interrumpido')")
+    page.wait_for_selector("#stopBtn", state="hidden")
+    assert page.locator(".card:not(.closed)").count() == 0                 # la pregunta tardía no quedó abierta
+    # Esc también detiene (con el cuadro vacío)
+    page.fill("#input", "otra")
+    page.click("#send")
+    page.wait_for_selector("#stopBtn:visible")
+    page.focus("#input")
+    page.keyboard.press("Escape")
+    page.wait_for_selector("#stopBtn", state="hidden", timeout=10000)
+    ctx.close()
+
+
+def test_tarjeta_huerfana_se_cierra(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    q = {"type": "question", "ref": "huerfana", "header": "Seguir", "question": "¿Sigo?",
+         "options": [{"label": "Sí", "description": ""}], "multi": False}
+    page.evaluate("q=>{q.tab=activeTab;render(q,true)}", q)                 # una tarjeta que el servidor no tiene
+    page.wait_for_selector("#d-huerfana .opt")
+    page.click("#d-huerfana .opt")                                         # responder: 404 → se cierra
+    page.wait_for_selector("#d-huerfana.closed:has-text('Ya no está disponible')")
+    assert page.evaluate("openCards.size") == 0
+    # y si no se toca, se cierra sola al ver que el servidor no la tiene pendiente
+    page.evaluate("q=>{q.tab=activeTab;q.ref='huerfana2';render(q,true);cardSeen['huerfana2']=0;reconcileCards()}", q)
+    page.wait_for_selector("#d-huerfana2.closed:has-text('Ya no está pendiente')")
+    assert page.locator("#tabs .tab.waiting").count() == 0
+    ctx.close()
+
+
+def test_maximo_de_pestanas(browser, make_server):
+    s = make_server("basic", MAX_SESSIONS="2")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#tabs [data-tab-add]:not(.full)")
+    page.click("#tabs [data-tab-add]")
+    page.fill("#tabName", "Front")
+    page.click("#tabForm button[type=submit]")
+    page.wait_for_selector("#tabs [data-tab-add].full")                    # se ve deshabilitado
+    page.locator("#tabs [data-tab-add]").dispatch_event("click")
+    page.wait_for_selector("#toast:has-text('Ya tienes 2 pestañas, el máximo')")
+    assert not page.locator("dialog[open]").count()
+    ctx.close()
+
+
+def test_aprobacion_sigue_abierta_si_tardo_en_responder(browser, make_server):
+    """Antes, a los 5 s se cerraba como «ya no está pendiente» con un estado viejo de la pestaña."""
+    s = make_server("basic")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    page.fill("#input", "corre las pruebas")
+    page.click("#send")
+    page.wait_for_selector(".card .yes", timeout=8000)
+    page.wait_for_timeout(7000)
+    assert page.locator(".card:not(.closed) .yes").count() == 1      # sigue esperando la respuesta
+    # un estado anterior a la tarjeta tampoco la cierra
+    page.evaluate("""()=>{const r=[...openCards][0];cardSeen[r]=Date.now()-10000;statusAt=cardSeen[r]-1;
+                    tabsInfo.forEach(t=>t.pending_refs=[]);reconcileCards()}""")
+    assert page.locator(".card:not(.closed) .yes").count() == 1
+    page.click(".card .yes")
+    page.wait_for_selector(".card.closed:has-text('Aprobado')", timeout=5000)
     ctx.close()

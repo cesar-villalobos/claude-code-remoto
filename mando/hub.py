@@ -23,7 +23,7 @@ EPHEMERAL_EVENTS = ("status", "stream", "stream_drop", "revoked", "reset")
 HISTORY_PERSIST = os.getenv("HISTORY_PERSIST", "1") not in ("0", "false", "no")
 
 
-HISTORY_FILE = Path(os.getenv("HISTORY_FILE", "~/.claude-remoto-history.json")).expanduser()
+HISTORY_FILE = Path(os.getenv("HISTORY_FILE", "~/.mando-history.json")).expanduser()
 
 
 HISTORY_SAVE_DELAY = 0.5

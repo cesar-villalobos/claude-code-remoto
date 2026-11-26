@@ -2,7 +2,7 @@
 
 import json
 
-from claude_remoto.attachments import validate_texts, with_files
+from mando.attachments import validate_texts, with_files
 
 LOG = "ERROR 12:01 conexión rechazada\nERROR 12:02 timeout SECRETO_DEL_LOG\n"
 

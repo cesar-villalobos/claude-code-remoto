@@ -11,7 +11,7 @@ def server_with_spent(make_server, tmp_path, spent, **env):
     home = tmp_path / "casa"
     home.mkdir()
     now = time.time()
-    with (home / ".claude-remoto-usage.jsonl").open("w") as f:
+    with (home / ".mando-usage.jsonl").open("w") as f:
         f.write(json.dumps({"ts": now - 5, "tab": "Principal", "cost": spent, "in": 1, "out": 1}) + "\n")
     s = make_server(HOME=str(home), STATE_FILE=str(home / "state.json"), CLAUDE_WORKDIR=str(home),
                     ALLOWED_ROOTS=str(home), **env)
@@ -81,7 +81,7 @@ def test_configurar_limite(srv):
 def test_solo_cuenta_el_mes_en_curso(tmp_path):
     code = """
 import time
-from claude_remoto import budget, usage
+from mando import budget, usage
 now = time.mktime((2026, 11, 3, 12, 0, 0, 0, 0, -1))
 usage.record(tab="a", tab_id="a", cost=7, usage={}, duration=1, turns=1, model="m", ok=True, now=now - 5 * 86400)  # octubre
 usage.record(tab="a", tab_id="a", cost=2, usage={}, duration=1, turns=1, model="m", ok=True, now=now)

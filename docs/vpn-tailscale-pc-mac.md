@@ -5,13 +5,13 @@ Esta guía es la variante de [vpn-tailscale.md](vpn-tailscale.md) para **computa
 | Uso | Para qué |
 |---|---|
 | **A. PC o Mac como puente** (*subnet router*) | Un computador de casa siempre encendido reemplaza a la Raspberry Pi y da acceso a toda tu red `192.168.1.x`. |
-| **B. PC o Mac como cliente** | Un notebook que llevas fuera de casa y desde el que quieres abrir Claude Remoto. |
+| **B. PC o Mac como cliente** | Un notebook que llevas fuera de casa y desde el que quieres abrir Mando. |
 
-> No uses como puente el PC corporativo donde corre Claude Remoto. El puente debe ser **otro** equipo de casa, así el corporativo queda sin tocar.
+> No uses como puente el PC corporativo donde corre Mando. El puente debe ser **otro** equipo de casa, así el corporativo queda sin tocar.
 
 Antes de empezar:
 - Crea tu cuenta de Tailscale con una cuenta **personal** (Google, GitHub, Apple o Microsoft).
-- En el router, reserva por DHCP una IP fija para el puente y otra para el PC de Claude Remoto.
+- En el router, reserva por DHCP una IP fija para el puente y otra para el PC de Mando.
 - Averigua tu red (en estos ejemplos, `192.168.1.0/24`). Si tu router está en `192.168.1.1`, la red es `192.168.1.0/24`; si está en `192.168.0.1`, es `192.168.0.0/24`. Para confirmarlo, ejecuta `ipconfig` en Windows o `ip -4 addr` / `ifconfig` en Linux y Mac.
 
 ---
@@ -79,13 +79,13 @@ En <https://login.tailscale.com/admin/machines>:
 
 ### Comprobar
 - En el puente, `tailscale status` debe mostrar el equipo conectado.
-- En el teléfono (con la app Tailscale y datos móviles), abre `https://192.168.1.X:8765`, con la IP del PC de Claude Remoto.
+- En el teléfono (con la app Tailscale y datos móviles), abre `https://192.168.1.X:8765`, con la IP del PC de Mando.
 
 ---
 
 ## B. PC o Mac como cliente (fuera de casa)
 
-Sirve para abrir Claude Remoto desde un notebook personal fuera de casa:
+Sirve para abrir Mando desde un notebook personal fuera de casa:
 
 | Sistema | Pasos |
 |---|---|
@@ -96,7 +96,7 @@ Luego abre `https://192.168.1.X:8765` en el navegador.
 
 **Certificado:** para que el navegador no muestre advertencias, instala también en ese computador la CA local (`https://192.168.1.X:8765/ca.crt`):
 - **Windows:** doble clic → *Instalar certificado* → *Equipo local* → *Colocar todos los certificados en el siguiente almacén* → **Entidades de certificación raíz de confianza**.
-- **macOS:** doble clic para abrirlo en *Acceso a Llaveros*, en el llavero **Sistema**. Luego doble clic en «Claude Remoto CA local» → *Confiar* → **Confiar siempre**.
+- **macOS:** doble clic para abrirlo en *Acceso a Llaveros*, en el llavero **Sistema**. Luego doble clic en «Mando CA local» → *Confiar* → **Confiar siempre**.
 - **Linux (Chrome/Chromium):** ve a *Configuración → Privacidad y seguridad → Seguridad → Gestionar certificados → Autoridades* → *Importar*, y marca *Confiar en este certificado para identificar sitios web*.
 
 > **No lo hagas en el PC corporativo.** Instalar Tailscale o una CA propia en un equipo de la empresa probablemente infringe sus políticas y puede chocar con la VPN corporativa. Usa un computador personal como cliente.

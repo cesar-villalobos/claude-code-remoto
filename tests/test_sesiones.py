@@ -103,7 +103,7 @@ def test_migra_el_formato_anterior(make_server, tmp_path):
     state = {"token": "x", "cwd": str(tmp_path / "proy"), "session_id": "abcdef12-0000", "mode": "plan"}
     (tmp_path / "state.json").write_text(json.dumps(state))
     hist = {"seq": 2, "history": [{"id": 1, "type": "user", "text": "antes"}, {"id": 2, "type": "assistant", "text": "ok"}]}
-    (tmp_path / ".claude-remoto-history.json").write_text(json.dumps(hist))
+    (tmp_path / ".mando-history.json").write_text(json.dumps(hist))
     s = make_server()
     s.login()
     st = status(s)
@@ -116,7 +116,7 @@ def test_migra_el_formato_anterior(make_server, tmp_path):
 
 def test_historial_limitado_por_sesion(tmp_path):
     code = """
-from claude_remoto import hub as h
+from mando import hub as h
 import json
 h.HISTORY_MAX = 3
 hub = h.Hub()
@@ -146,7 +146,7 @@ def test_estado_al_terminar(srv):
 def test_estado_no_pisa_el_id_del_evento(tmp_path):
     # Con ids de sesión de solo dígitos, el navegador creía haber visto un evento enorme y descartaba los siguientes
     code = """
-from claude_remoto.agent import global_status
+from mando.agent import global_status
 import json
 st = global_status()
 print(json.dumps(["id" in st, st["tab"] == st["tabs"][0]["id"]]))
@@ -158,7 +158,7 @@ print(json.dumps(["id" in st, st["tab"] == st["tabs"][0]["id"]]))
 
 def test_hub_no_deja_pisar_el_id(tmp_path):
     code = """
-from claude_remoto import hub as h
+from mando import hub as h
 import json
 hub = h.Hub()
 ev = hub.emit('status', id='99999999', type='otro')

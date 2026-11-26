@@ -19,7 +19,7 @@ from . import __version__
 from .config import CORP_CA_BUNDLE, CORP_PROXY, log
 
 UPDATE_CHECK = os.getenv("UPDATE_CHECK", "1") not in ("0", "false", "no")
-UPDATE_REPO = os.getenv("UPDATE_REPO", "cesar-villalobos/claude-code-remoto")
+UPDATE_REPO = os.getenv("UPDATE_REPO", "cesar-villalobos/mando")
 UPDATE_URL = os.getenv("UPDATE_URL") or f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
 INTERVAL = 24 * 3600
 FIRST_DELAY = float(os.getenv("UPDATE_FIRST_DELAY", "20"))   # no retrasar el arranque
@@ -45,7 +45,7 @@ def fetch() -> dict[str, Any] | None:
     ctx = ssl.create_default_context(cafile=os.path.expanduser(CORP_CA_BUNDLE)) if CORP_CA_BUNDLE else None
     handlers.append(urllib.request.HTTPSHandler(context=ctx))
     req = urllib.request.Request(UPDATE_URL, headers={"Accept": "application/vnd.github+json",
-                                                      "User-Agent": f"claude-remoto/{__version__}"})
+                                                      "User-Agent": f"mando/{__version__}"})
     try:
         with urllib.request.build_opener(*handlers).open(req, timeout=10) as r:
             data = json.loads(r.read(200_000))
@@ -78,7 +78,7 @@ async def loop(on_change) -> None:
             changed = info["version"] != LATEST.get("version")
             LATEST.update(info)
             if changed and newer(info["version"]):
-                log.info("🆕 Hay una versión nueva de Claude Remoto: %s (tienes %s) %s",
+                log.info("🆕 Hay una versión nueva de Mando: %s (tienes %s) %s",
                          info["version"], __version__, info["url"])
                 on_change()
         await asyncio.sleep(INTERVAL)

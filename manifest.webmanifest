@@ -1,6 +1,6 @@
 {
-  "name": "Claude Remoto",
-  "short_name": "Claude Remoto",
+  "name": "Mando",
+  "short_name": "Mando",
   "description": "Control de Claude Code por red local",
   "id": "/",
   "start_url": "/",

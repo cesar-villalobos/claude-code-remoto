@@ -1,6 +1,8 @@
-# Claude Remoto (red local)
+# Mando (red local)
 
-Controla Claude Code desde el navegador del celular, **solo dentro de tu red local**. El control no pasa por Telegram, Slack ni ningún otro servicio externo.
+Mando es un control remoto para tu agente de programación: controla Claude Code desde el navegador del celular, **solo dentro de tu red local**. El control no pasa por Telegram, Slack ni ningún otro servicio externo.
+
+> **Antes se llamaba «Claude Remoto».** Si vienes de esa versión, al actualizar tus datos (token, dispositivos, 2FA, reglas, historial, auditoría y uso) se migran solos a los archivos nuevos `~/.mando*`. Si usabas el arranque automático, vuelve a ejecutar `python server.py --instalar-inicio`: reemplaza el anterior. Si tu `.env` fija `STATE_FILE`, `HISTORY_FILE`, `AUDIT_FILE` o `USAGE_FILE` con el nombre antiguo (venían así en el ejemplo), también se migran; el servidor te avisa para que cambies o borres esas líneas.
 
 > **Proyecto independiente y no oficial**, sin afiliación con Anthropic ni respaldo de su parte. «Claude» y «Claude Code» son marcas de Anthropic. Para la función oficial de control remoto, consulta la documentación de Claude Code.
 
@@ -9,7 +11,7 @@ Para quienes usan **Claude Code con la API**, y especialmente **a través de un 
 
 En esos casos no está disponible el [Remote Control oficial](https://code.claude.com/docs/en/remote-control) de Claude Code. Según su documentación, requiere iniciar sesión con una suscripción de claude.ai (Pro, Max, Team o Enterprise): no admite claves de API, y tampoco funciona cuando `ANTHROPIC_BASE_URL` apunta a un gateway o proxy, ni con Amazon Bedrock, Google Cloud o Microsoft Foundry.
 
-Claude Remoto cubre ese hueco:
+Mando cubre ese hueco:
 - **Funciona con tu configuración actual:** la clave de API o el gateway de la empresa, con su proxy y certificados, y los servidores MCP que uses.
 - **Lo que haces desde el celular no pasa por ningún servicio externo:** viaja por tu red local, o por tu VPN cuando estás fuera.
 
@@ -18,7 +20,7 @@ Si tienes una suscripción compatible y no usas un gateway, el Remote Control of
 <details>
 <summary><b>🇬🇧 In English</b></summary>
 
-**Claude Remoto** lets you drive [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) from your phone's browser, **over your local network only**. It is meant for people who use Claude Code **through the API, especially via a corporate AI gateway** (`ANTHROPIC_BASE_URL`), where the official [Remote Control](https://code.claude.com/docs/en/remote-control) is not available (it requires a claude.ai subscription and does not support API keys, gateways or Bedrock/Vertex/Foundry). Nothing goes through Telegram, Slack or any other third-party service; for access away from home, use a VPN (a Tailscale guide is included). The user interface and docs are in **Spanish** for now.
+**Mando** lets you drive [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) from your phone's browser, **over your local network only**. It is meant for people who use Claude Code **through the API, especially via a corporate AI gateway** (`ANTHROPIC_BASE_URL`), where the official [Remote Control](https://code.claude.com/docs/en/remote-control) is not available (it requires a claude.ai subscription and does not support API keys, gateways or Bedrock/Vertex/Foundry). Nothing goes through Telegram, Slack or any other third-party service; for access away from home, use a VPN (a Tailscale guide is included). The user interface and docs are in **Spanish** for now.
 
 - **Approve or reject** each tool call from cards: diffs for file edits, plan review, answers to Claude's questions, rejection with a comment.
 - **Real-time streaming**, synced across devices without refreshing. Sound alerts and system notifications with Approve/Reject buttons.
@@ -61,6 +63,7 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
   El cambio se aplica en caliente, incluso con una tarea en curso, se ve en todos los dispositivos y se guarda entre reinicios. El modo inicial se define con `PERMISSION_MODE`. Por seguridad no se ofrece el modo que se salta todos los permisos.
 - **Cola de mensajes:** mientras Claude trabaja puedes seguir enviando. Cada mensaje aparece como «⏳ en cola» en todos tus dispositivos y se ejecuta solo cuando termina la tarea actual, en orden, como una tarea normal con sus decisiones.
   - ✕ quita un mensaje de la cola. ⏹ detiene la tarea y vacía la cola.
+- **Detener** (⏹ junto a enviar, o Esc con el cuadro de texto vacío): aparece solo mientras Claude trabaja. Las decisiones pendientes de esa tarea se cancelan en todos los dispositivos, y si Claude alcanza a pedir algo justo al detenerse, ya no aparece como tarjeta.
   - Cada pestaña tiene su propia cola, de hasta 10 mensajes. Las plantillas directas también se pueden encolar.
   - Si el servidor se reinicia, los mensajes en cola quedan marcados como no enviados.
 - **Elegir el modelo** (🧠 junto al modo): cada pestaña puede usar un modelo distinto, por ejemplo uno más rápido para tareas simples.
@@ -68,8 +71,9 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
   - «Predeterminado» es el que tengas configurado en Claude Code.
   - La lista se define con `CLAUDE_MODELS`. Con un gateway, pon los nombres exactos que acepte, por ejemplo `default,claude-sonnet-5,claude-opus-5`.
 - **Costo y uso** (☰ → 💲 Uso): totales de hoy, 7 y 30 días, un gráfico por día y el desglose por pestaña y por modelo. Cada tarea muestra al terminar su costo y sus tokens.
-  - Se guarda en `~/.claude-remoto-usage.jsonl`, solo legible por tu usuario y **sin el texto de las tareas**.
+  - Se guarda en `~/.mando-usage.jsonl`, solo legible por tu usuario y **sin el texto de las tareas**.
   - El costo es la estimación de Claude Code según los precios públicos. Con un gateway corporativo el cobro real puede ser distinto, por eso también se muestran los tokens.
+  - Si tu empresa tiene precios contratados distintos, Claude Code los aplica a sus estimaciones con el ajuste `modelPricing` de su configuración (por ejemplo `"modelPricing": {"multiplier": 0.6}` en `~/.claude/settings.json`), y Mando muestra la cifra ajustada.
 - **Aviso de versión nueva:** al arrancar y una vez al día, el servidor consulta la última versión publicada en GitHub. Si hay una más nueva, la página muestra una barra con «Ver novedades», que se puede descartar.
   - Es una consulta anónima a GitHub que no envía datos tuyos. Usa tu proxy y tu CA si están configurados.
   - Se desactiva con `UPDATE_CHECK=0`.
@@ -112,7 +116,7 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
 - **Rechazar con comentario:** con «💬 Rechazar con comentario» le explicas a Claude qué hacer distinto (por ejemplo, «usa `make test` en vez de `pytest`»). Claude recibe el motivo y propone otra forma de continuar, en vez de detenerse. En las preguntas, «✏️ Otra respuesta» permite escribir una respuesta libre en vez de elegir una opción. Todos tus dispositivos ven el comentario en la tarjeta.
 - **Sesiones en paralelo** (pestañas bajo la barra superior): por ejemplo una por proyecto o por ticket, para que Claude trabaje en una mientras revisas otra.
   - Si una pestaña que no estás mirando espera una decisión, se pinta en ámbar con un pulso suave y muestra cuántas tiene pendientes. Además aparece la barra «◆ «Front» espera tu decisión → Ir», que te lleva a la tarjeta. La barra de pestañas se desplaza sola para que esa pestaña quede a la vista.
-  - Cada sesión tiene su propio Claude Code, carpeta, modo de permisos, historial y decisiones. ⏹ y el modo afectan solo a la pestaña abierta.
+  - Cada sesión tiene su propio Claude Code, carpeta, modo de permisos, historial y decisiones. ⏹ y el modo afectan solo a la pestaña abierta. Al llegar al máximo (`MAX_SESSIONS`, 6 por defecto), ＋ se ve atenuado y al tocarlo explica cómo liberar una.
   - Las pestañas muestran ◆ cuando esperan una decisión, un punto pulsante mientras trabajan y • cuando hay novedades que no has visto.
   - **＋** crea una sesión (nombre y carpeta). Tocando la pestaña abierta la renombras o la cierras; al cerrarla se detiene su tarea y se borra su historial.
   - Cada dispositivo recuerda su pestaña abierta: puedes ver una en el PC y otra en el celular.
@@ -120,7 +124,7 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
   - Hasta 6 sesiones (`MAX_SESSIONS`). Cada una mantiene un proceso de Claude Code abierto. Las reglas, plantillas, Jira y la seguridad son comunes a todas.
 - Menú con: conversación nueva, retomar una conversación anterior (también las de la terminal), cambio de carpeta, estado y detener. Todo se aplica a la pestaña abierta.
 - Si cierras el navegador o se corta el Wi-Fi, al volver ves el historial y las decisiones pendientes.
-- **Historial persistente:** el chat se guarda en tu PC (`~/.claude-remoto-history.json`, últimos 400 eventos) y se recupera al reiniciar el servidor. Las decisiones que quedaron sin responder aparecen como «⚠️ Expirada», porque Claude ya no las espera. Se borra desde ☰ → 🔐 Seguridad, o se desactiva con `HISTORY_PERSIST=0`.
+- **Historial persistente:** el chat se guarda en tu PC (`~/.mando-history.json`, últimos 400 eventos) y se recupera al reiniciar el servidor. Las decisiones que quedaron sin responder aparecen como «⚠️ Expirada», porque Claude ya no las espera. Se borra desde ☰ → 🔐 Seguridad, o se desactiva con `HISTORY_PERSIST=0`.
 - **Varios dispositivos en sincronía:** puedes tener abierta la misma sesión en el PC y en el celular. Lo que haces en uno, incluido aprobar o responder, aparece al instante en el otro, sin refrescar:
   - Un latido cada 10 s detecta conexiones caídas en silencio (pantalla bloqueada, cambio de Wi-Fi) y reconecta solo.
   - Al volver a la pestaña o recuperar la red, la página se resincroniza.
@@ -155,19 +159,19 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
 
 ## Instalación
 ```bash
-mkdir -p ~/claude-remoto && cd ~/claude-remoto
-# o: git clone https://github.com/cesar-villalobos/claude-code-remoto.git ~/claude-remoto
+mkdir -p ~/mando && cd ~/mando
+# o: git clone https://github.com/cesar-villalobos/mando.git ~/mando
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt          # solo claude-agent-sdk, python-dotenv y qrcode
 cp .env.example .env && chmod 600 .env   # ajusta CLAUDE_WORKDIR y ALLOWED_ROOTS
 ```
 
-**Servidores MCP:** Claude Remoto usa los que ya tienes configurados en Claude Code. Para agregar uno, se hace como siempre:
+**Servidores MCP:** Mando usa los que ya tienes configurados en Claude Code. Para agregar uno, se hace como siempre:
 ```bash
 claude mcp add --transport http --scope user <nombre> <url>
 claude    # /mcp → <nombre> → autenticar, si lo pide
 ```
-También puedes declarar servidores solo para Claude Remoto con `MCP_SERVERS` en `.env` (JSON, ver `.env.example`). En las tarjetas, cada herramienta MCP aparece como «🧩 servidor · herramienta», y con las reglas puedes aprobar o bloquear un servidor completo (por ejemplo `mcp__miservidor__*`).
+También puedes declarar servidores solo para Mando con `MCP_SERVERS` en `.env` (JSON, ver `.env.example`). En las tarjetas, cada herramienta MCP aparece como «🧩 servidor · herramienta», y con las reglas puedes aprobar o bloquear un servidor completo (por ejemplo `mcp__miservidor__*`).
 
 ## Uso
 ```bash
@@ -192,13 +196,13 @@ Usa lo propio de cada sistema y **no pide permisos de administrador**:
 
 | Sistema | Cómo | Dónde |
 |---|---|---|
-| Windows | Tarea del Programador de tareas, solo para tu usuario y sin ventana | «Programador de tareas» → `ClaudeRemoto` |
-| macOS | LaunchAgent | `~/Library/LaunchAgents/com.claude-remoto.server.plist` |
-| Linux | Servicio de usuario de systemd | `~/.config/systemd/user/claude-remoto.service` |
+| Windows | Tarea del Programador de tareas, solo para tu usuario y sin ventana | «Programador de tareas» → `Mando` |
+| macOS | LaunchAgent | `~/Library/LaunchAgents/com.mando.server.plist` |
+| Linux | Servicio de usuario de systemd | `~/.config/systemd/user/mando.service` |
 
 Detalles:
 - Si el servidor se cae, se reinicia solo.
-- El registro queda en `~/.claude-remoto.log`, con permisos solo para tu usuario y rotación automática. **El token no se escribe en el registro.**
+- El registro queda en `~/.mando.log`, con permisos solo para tu usuario y rotación automática. **El token no se escribe en el registro.**
 - Para ver el enlace con token y el QR cuando quieras conectar un dispositivo nuevo: `python server.py --mostrar-acceso`.
 - `python server.py --estado-inicio` muestra si está instalado y corriendo. `python server.py --quitar-inicio` lo desactiva.
 - Si abres `python server.py` a mano mientras el automático está corriendo, te avisa que el puerto ya está en uso.
@@ -271,13 +275,13 @@ Abre `https://<IP-del-PC>:8765/ca.crt` en el teléfono. Esa única vez, acepta l
 **Android**
 1. El archivo se descarga.
 2. Ve a *Ajustes → Seguridad → Más ajustes de seguridad → Cifrado y credenciales → Instalar un certificado → Certificado de CA*. La ruta exacta varía según el fabricante; busca «certificado» en Ajustes.
-3. Elige `claude-remoto-ca.crt`.
+3. Elige `mando-ca.crt`.
 4. Abre `https://<IP-del-PC>:8765`: ya no aparece la advertencia. Toca **Activar** y permite las notificaciones.
 5. Opcional: en el menú de Chrome, *Agregar a pantalla principal*, para abrirla como app.
 
 **iPhone (iOS 16.4 o posterior)**
 1. Safari ofrece descargar un perfil: acepta.
-2. Ve a *Ajustes → General → VPN y gestión de dispositivos* e instala el perfil «Claude Remoto CA local».
+2. Ve a *Ajustes → General → VPN y gestión de dispositivos* e instala el perfil «Mando CA local».
 3. Ve a *Ajustes → General → Información → Ajustes de confianza de certificados* y activa la confianza total para esa CA.
 4. En Safari, toca *Compartir → Agregar a inicio*. En iPhone, las notificaciones web **solo** funcionan como app de pantalla de inicio.
 5. Abre la app desde el ícono, toca **Activar** y permite las notificaciones.
@@ -312,7 +316,7 @@ Para usarlo fuera de casa, usa una Raspberry Pi (o un PC) como puente de Tailsca
 - **[Con un PC o Mac](docs/vpn-tailscale-pc-mac.md)** (Windows, macOS, Linux), como puente en casa o como cliente desde un notebook
 
 ## Estructura del código
-`server.py` es solo el punto de entrada; el código está en el paquete `claude_remoto/`, ordenado en capas (cada módulo importa solo de los de arriba):
+`server.py` es solo el punto de entrada; el código está en el paquete `mando/`, ordenado en capas (cada módulo importa solo de los de arriba):
 
 | Módulo | Qué hace |
 |---|---|
@@ -325,7 +329,9 @@ Para usarlo fuera de casa, usa una Raspberry Pi (o un PC) como puente de Tailsca
 | `rules.py` | Reglas de aprobación por patrón |
 | `diff.py` | Diff de las ediciones para las tarjetas |
 | `decisions.py` | Decisiones pendientes y su resolución |
-| `agent.py` | Sesiones de Claude Code (una por pestaña): permisos, hooks, streaming |
+| `agent.py` | Pestañas: cola, tarjetas de decisión, reglas, burbujas en vivo, resumen de cambios y costo (sin saber qué agente hay detrás) |
+| `engines/base.py` | Contrato común de los motores: qué pide y qué entrega cada agente |
+| `engines/claude.py` | Motor Claude Code (claude-agent-sdk) |
 | `claude_sessions.py` | Sesiones guardadas de Claude Code y carpetas permitidas |
 | `auth.py` | Filtro de IP, límites de intentos, token y cookies |
 | `api.py` | API que usa la interfaz (`/api/send`, `/api/decide`, `/api/cmd`) |
@@ -375,6 +381,7 @@ El proyecto tiene pruebas automáticas que usan un **Claude Code simulado** (`te
 | `test_adjuntar_texto.py` | Archivos de texto: validación, secretos, formato para Claude, que llegue a Claude y que no quede en el historial ni en la auditoría |
 | `test_programadas.py` | Tareas programadas: próxima ejecución, validación, ejecución a su hora, ejecutar ahora y ejecuciones perdidas |
 | `test_resumen_diario.py` | Resumen del día: conteos por pestaña, solo el día en curso, sin textos, cuándo se envía y configuración |
+| `test_motores.py` | Capa de motores: una pestaña funciona con cualquier motor que cumpla el contrato |
 | `test_jira.py` | Enlaces a Jira: configuración, validación y valores de `.env` |
 | `test_plantillas.py` | Plantillas: ejemplos, edición, validación, orden, límite y persistencia |
 | `test_voz.py` | Voz: motor según la configuración, transcripción con Whisper simulado, límites y protección del audio |
@@ -399,7 +406,7 @@ En GitHub se ejecutan solas en cada push a `main` y `develop` y en cada pull req
 - **Cookie** `HttpOnly` y `SameSite=Strict`, con protección contra peticiones de otros sitios (CSRF) y cabeceras de seguridad.
 - **Sesión por dispositivo** (☰ → 🔐 Seguridad): ves cada dispositivo conectado con su IP y última actividad, y puedes cerrar uno o todos los demás. El dispositivo se desconecta al instante. Cada sesión dura `SESSION_DAYS` días (30 por defecto) y en el PC solo se guarda su huella (SHA-256), nunca la cookie.
 - **Rotar el token** desde el mismo panel: genera uno nuevo y cierra las demás sesiones. Si definiste `ACCESS_TOKEN` en `.env`, cámbialo ahí.
-- **Auditoría:** cada inicio de sesión (correcto o fallido), tarea, decisión, regla y comando que ejecuta Claude queda en `~/.claude-remoto-audit.jsonl`, solo legible por tu usuario. Se consulta y filtra desde ☰ → 🔐 Seguridad → *Ver registro*, y se puede descargar. Se rota al llegar a `AUDIT_MAX_MB` (5 MB).
+- **Auditoría:** cada inicio de sesión (correcto o fallido), tarea, decisión, regla y comando que ejecuta Claude queda en `~/.mando-audit.jsonl`, solo legible por tu usuario. Se consulta y filtra desde ☰ → 🔐 Seguridad → *Ver registro*, y se puede descargar. Se rota al llegar a `AUDIT_MAX_MB` (5 MB).
 - **Web Push** (opcional, apagado por defecto en cada dispositivo): es lo único que sale a internet, cifrado y sin detalles de la tarea. Ver [Avisos con la app cerrada](#avisos-con-la-app-cerrada-web-push-opcional).
 - **Detenerlo:** con Ctrl+C se cierra el puerto y deja de ser accesible.
 
@@ -431,6 +438,6 @@ Detalles:
 | `SSL: CERTIFICATE_VERIFY_FAILED` en las respuestas de Claude | Configura `CORP_CA_BUNDLE` (es la conexión de Claude hacia el gateway, no la del celular) |
 
 ## Licencia
-[MIT](LICENSE). Úsalo bajo tu propia responsabilidad: ver el [aviso de seguridad](#claude-remoto-red-local) y [SECURITY.md](SECURITY.md).
+[MIT](LICENSE). Úsalo bajo tu propia responsabilidad: ver el [aviso de seguridad](#mando-red-local) y [SECURITY.md](SECURITY.md).
 
 Proyecto independiente, sin afiliación con Anthropic. «Claude» y «Claude Code» son marcas de Anthropic.

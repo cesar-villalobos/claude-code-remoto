@@ -16,7 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from claude_remoto import agent, app  # noqa: E402
+from mando import app  # noqa: E402
+from mando.engines import claude as claude_engine  # noqa: E402
 from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock  # noqa: E402
 from claude_agent_sdk.types import PermissionResultDeny, StreamEvent  # noqa: E402
 
@@ -32,9 +33,13 @@ def tool(name: str, data: dict) -> AssistantMessage:
     return AssistantMessage(content=[ToolUseBlock(id=name, name=name, input=data)], model="fake")
 
 
+COST_TOTALS: dict[str, float] = {}   # como el CLI real: total_cost_usd es el acumulado de la sesión
+
+
 def result(session_id: str) -> ResultMessage:
+    COST_TOTALS[session_id] = round(COST_TOTALS.get(session_id, 0) + 0.0012, 6)
     return ResultMessage(subtype="success", duration_ms=1, duration_api_ms=1, is_error=False,
-                         num_turns=1, session_id=session_id, total_cost_usd=0.0012,
+                         num_turns=1, session_id=session_id, total_cost_usd=COST_TOTALS[session_id],
                          usage={"input_tokens": 1200, "output_tokens": 300, "cache_read_input_tokens": 5000,
                                 "cache_creation_input_tokens": 0})
 
@@ -66,7 +71,11 @@ class FakeClient:
         pass
 
     async def interrupt(self):
-        pass
+        print("FAKE interrupt", flush=True)
+        if SCENARIO == "detener_pregunta":
+            # Como el CLI real: justo al interrumpir llega una pregunta (en otra tarea, no la del turno)
+            q = {"questions": [{"question": "¿Sigo?", "header": "Seguir", "options": [{"label": "Sí"}, {"label": "No"}]}]}
+            self.late = asyncio.get_running_loop().create_task(self.o.can_use_tool("AskUserQuestion", q, None))
 
     async def query(self, prompt):
         self.images = []
@@ -136,6 +145,10 @@ class FakeClient:
             yield text(f"Write: {type(r2).__name__}")
             yield result("44444444-4444-4444-4444-444444444444")
             return
+        if SCENARIO == "detener_pregunta":
+            yield text("Trabajando en algo largo…")
+            await asyncio.sleep(30)
+            return
         if SCENARIO == "eco":   # devuelve lo que recibió Claude (para verificar los adjuntos)
             await asyncio.sleep(0.3 * DELAY)
             yield text("ECO:" + self.prompt)
@@ -196,14 +209,14 @@ class FakeClient:
         yield result("11111111-2222-3333-4444-555555555555")
 
 
-agent.ClaudeSDKClient = FakeClient
+claude_engine.ClaudeSDKClient = FakeClient
 
 if os.getenv("FAKE_WHISPER") == "0":  # como si faster-whisper no estuviera (aunque lo tengas instalado)
-    from claude_remoto import voice  # noqa: E402
+    from mando import voice  # noqa: E402
 
     voice.whisper_installed = lambda: False
 elif os.getenv("FAKE_WHISPER"):  # Whisper simulado: devuelve el tamaño y el formato del audio recibido
-    from claude_remoto import voice  # noqa: E402
+    from mando import voice  # noqa: E402
 
     voice.whisper_installed = lambda: True
     voice.transcribe_file = lambda path: f"texto dictado {Path(path).suffix} {Path(path).stat().st_size} bytes"

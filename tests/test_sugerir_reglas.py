@@ -14,8 +14,8 @@ def py(tmp_path, code, **env):
 def test_que_se_sugiere_y_que_nunca(tmp_path):
     out = py(tmp_path, """
 import json
-from claude_remoto.agent import shared_rules
-from claude_remoto.rule_suggest import candidate
+from mando.agent import shared_rules
+from mando.rule_suggest import candidate
 rules = shared_rules()
 def c(cmd): r = candidate("Bash", {"command": cmd}, "/tmp", rules); return r and r["pattern"]
 ok = ["npm test", "pytest -q tests", "ls -la", "git status", "git diff --stat", "make build", "python manage.py test"]
@@ -39,8 +39,8 @@ print(json.dumps(c("npm test")))
 
 def test_umbral_ahora_no_y_nunca(tmp_path):
     out = py(tmp_path, """
-from claude_remoto.agent import shared_rules
-from claude_remoto import rule_suggest as rs
+from mando.agent import shared_rules
+from mando import rule_suggest as rs
 rules = shared_rules()
 a = lambda: rs.on_approved("Bash", {"command": "npm test"}, "/tmp", rules)
 print(a() is None, (o := a())["pattern"], o["count"])
@@ -56,8 +56,8 @@ print(all(a() is None for _ in range(5)))
 
 def test_desactivado(tmp_path):
     out = py(tmp_path, """
-from claude_remoto.agent import shared_rules
-from claude_remoto import rule_suggest as rs
+from mando.agent import shared_rules
+from mando import rule_suggest as rs
 print([rs.on_approved("Bash", {"command": "npm test"}, "/tmp", shared_rules()) for _ in range(4)])
 """, RULE_SUGGEST_AFTER="0")
     assert out == ["[None, None, None, None]"]

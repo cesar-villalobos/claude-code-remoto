@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Convierte una Raspberry Pi / Orange Pi / PC con Linux en "puente" Tailscale
 # (subnet router) hacia tu red de casa. Así el celular, con la app de Tailscale,
-# llega a Claude Remoto por su IP privada desde cualquier lugar:
+# llega a Mando por su IP privada desde cualquier lugar:
 #   - sin abrir puertos en el router (funciona aunque haya CGNAT)
-#   - sin instalar nada en el PC donde corre Claude Remoto
+#   - sin instalar nada en el PC donde corre Mando
 #
 # Uso (en la Pi):   sudo bash tailscale-subnet-router.sh [red/máscara]
 #                   p. ej. sudo bash tailscale-subnet-router.sh 192.168.1.0/24
@@ -61,5 +61,5 @@ Falta (una sola vez) en https://login.tailscale.com/admin/machines :
   2. En esta máquina: ⋯ → «Disable key expiry» (para que no se desconecte a los 180 días).
 
 Luego, en el celular: instala la app Tailscale, entra con la MISMA cuenta,
-actívala y abre Claude Remoto con su IP privada de siempre.
+actívala y abre Mando con su IP privada de siempre.
 EOF

@@ -6,12 +6,12 @@ import sys
 
 from conftest import ROOT, run_python
 
-from claude_remoto import __version__   # la versión instalada (cambia en cada release)
+from mando import __version__   # la versión instalada (cambia en cada release)
 
 
 def test_comparar_versiones(tmp_path):
     code = """
-from claude_remoto import updates as u
+from mando import updates as u
 import json
 print(json.dumps([u.newer("v0.4.0", "0.3.0"), u.newer("v0.3.0", "0.3.0"), u.newer("v0.2.9", "0.3.0"),
                   u.newer("v.0.10.0", "0.9.9"), u.newer("latest", "0.3.0"), u.parse("v1.2.3")]))
@@ -55,4 +55,4 @@ def test_sin_aviso_si_esta_al_dia_o_desactivado(make_server, tmp_path):
 
 def test_version_en_linea_de_comandos():
     r = subprocess.run([sys.executable, str(ROOT / "server.py"), "--version"], capture_output=True, text=True)
-    assert r.stdout.strip() == f"Claude Remoto {__version__}"
+    assert r.stdout.strip() == f"Mando {__version__}"

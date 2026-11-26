@@ -17,7 +17,7 @@ from .state import STATE, save_state
 TOTP_STEP = 30
 
 
-TOTP_ISSUER = "Claude Remoto"
+TOTP_ISSUER = "Mando"
 
 
 TOTP_SETUP: dict[str, tuple[str, float]] = {}  # sesión → (secreto propuesto, expiración)

@@ -14,7 +14,7 @@ def py(tmp_path, code, **env):
 def test_armar_resumen(tmp_path):
     out = py(tmp_path, """
 import json, time
-from claude_remoto import daily, usage
+from mando import daily, usage
 now = time.time()
 usage.record(tab="Front", tab_id="f", cost=0.25, usage={"input_tokens": 1000, "output_tokens": 500}, duration=30,
              turns=1, model="m", ok=True, now=now)
@@ -49,7 +49,7 @@ print(json.dumps(daily.build([], {}, now)["tasks"]))
 def test_cuando_se_envia(tmp_path):
     out = py(tmp_path, """
 import time
-from claude_remoto import daily
+from mando import daily
 t = lambda h, m: time.mktime((2026, 11, 24, h, m, 0, 0, 0, -1))
 print(daily.is_due(t(19, 0)))                       # desactivado por defecto
 daily.save(True, "18:30")
@@ -62,7 +62,7 @@ print(daily.save(True, "25:00")[1] is not None)
 
 
 def test_activado_por_env(tmp_path):
-    out = py(tmp_path, "from claude_remoto import daily; print(daily.settings())", DAILY_SUMMARY_AT="17:45")
+    out = py(tmp_path, "from mando import daily; print(daily.settings())", DAILY_SUMMARY_AT="17:45")
     assert out == ["{'enabled': True, 'at': '17:45', 'last': ''}"]
 
 

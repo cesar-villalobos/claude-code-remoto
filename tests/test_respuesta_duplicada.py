@@ -17,8 +17,8 @@ def test_al_cerrar_no_duplica_lo_ya_respondido(tmp_path):
     """Si una burbuja quedó abierta con el mismo texto que una respuesta definitiva, solo se quita."""
     r = run_python(tmp_path, """
 import json
-from claude_remoto.agent import AGENTS
-from claude_remoto.hub import HUB
+from mando.agent import AGENTS
+from mando.hub import HUB
 sent = []
 orig = HUB.emit
 HUB.emit = lambda t, **d: sent.append([t, d.get("sid") or d.get("replaces"), d.get("text")]) or orig(t, **d)
