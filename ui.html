@@ -222,6 +222,7 @@
   #tabs .tab .tname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #tabs .tab.add{font-weight:700;padding:6px 10px}
   #tabs .tab.add.full{opacity:.4;border-style:dashed}
+  #tabs .tengine{flex:none;font-size:10px;padding:1px 6px;border-radius:8px;background:color-mix(in srgb,var(--accent) 22%,transparent);font-weight:600}
   #tabs .tmark{flex:none;font-size:11px}
   #tabs .tmark.busy{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite}
   #tabs .tmark.wait{color:var(--accent)}
@@ -474,7 +475,7 @@ function applyTabStatus(){
   if(!tabsInfo.some(t=>t.id===activeTab)){activeTab=tabsInfo[0].id;showTab(activeTab);return}
   tabsInfo.forEach(t=>logFor(t.id));
   const t=tabsInfo.find(x=>x.id===activeTab);
-  Object.assign(status,{busy:t.busy,queued:t.queued||0,cwd:t.cwd,session:t.session,mode:t.mode,model:t.model,pending:t.pending,since:t.since,always:t.always,name:t.name,tab:t.id});
+  Object.assign(status,{busy:t.busy,queued:t.queued||0,cwd:t.cwd,session:t.session,mode:t.mode,model:t.model,pending:t.pending,since:t.since,always:t.always,name:t.name,tab:t.id,engine:t.engine||'claude'});
   const m=logs[activeTab]; if(m&&m.id!=='log'){showTab(activeTab,{scroll:false});return}
   paintTabs();
 }
@@ -495,7 +496,8 @@ function paintTabs(){
       :t.busy?'<span class="tmark busy" title="Trabajando"></span>'
       :unread[t.id]?'<span class="tmark new" title="Novedades">•</span>':'';
     const fc=typeof findCounts!=='undefined'&&allTabsMode()&&findOpen()?findCounts[t.id]:0;
-    b.innerHTML=mark+`<span class="tname">${esc(t.name)}</span>`+(fc?`<span class="tfind" title="${fc} coincidencia${fc>1?'s':''}">${fc}</span>`:'');
+    const eng=t.engine&&t.engine!=='claude'?`<span class="tengine" title="${esc(engineOf(t.engine).label)}">${esc(engineOf(t.engine).label)}</span>`:'';
+    b.innerHTML=mark+`<span class="tname">${esc(t.name)}</span>`+eng+(fc?`<span class="tfind" title="${fc} coincidencia${fc>1?'s':''}">${fc}</span>`:'');
     b.title=`${t.name} · ${t.cwd}`+(waiting?` · ${n} decisión${n>1?'es':''} pendiente${n>1?'s':''}`:'')+(t.id===activeTab?' · toca para renombrar o cerrar':'');
     if(waiting)b.setAttribute('aria-label',`${t.name}: esperando tu decisión`);
     b.onclick=()=>t.id===activeTab?tabMenu(t):showTab(t.id);
@@ -544,16 +546,17 @@ function paintWaitBar(pend=pendingByTab()){
 }
 function newTabDialog(){
   showDialog(`<h3>🗂️ Nueva sesión en paralelo</h3>
-    <p class="note">Cada sesión tiene su propio Claude Code, carpeta, modo e historial. Puedes tener hasta ${status.max_tabs||6} a la vez; cada una mantiene un proceso de Claude Code abierto.</p>
+    <p class="note">Cada sesión tiene su propio agente, carpeta, modo e historial. Puedes tener hasta ${status.max_tabs||6} a la vez; cada una mantiene su propio proceso abierto.</p>
     <form class="tpl-form" id="tabForm">
       <label for="tabName">Nombre</label><input id="tabName" maxlength="30" placeholder="p. ej. Backend, ABC-123…">
+      ${(status.engines||[]).length>1?`<label for="tabEngine">Agente</label><select id="tabEngine">${status.engines.map(e=>`<option value="${esc(e.name)}">${esc(e.label)}${e.name==='codex'?' (experimental)':''}</option>`).join('')}</select>`:''}
       <label for="tabCwd">Carpeta</label><input id="tabCwd" value="${esc(status.cwd||'')}">
       <p class="note warn" id="tabErr"></p>
       <div class="sec-actions"><button type="submit">Crear</button></div>
     </form>`);
   $('#tabName').focus();
   $('#tabForm').onsubmit=async e=>{e.preventDefault();
-    const r=await api('/api/cmd',{cmd:'tab_new',name:$('#tabName').value,cwd:$('#tabCwd').value});
+    const r=await api('/api/cmd',{cmd:'tab_new',name:$('#tabName').value,cwd:$('#tabCwd').value,engine:$('#tabEngine')?.value||'claude'});
     if(r.ok){dlg.close();setStatus(r.status);showTab(r.tab)}else $('#tabErr').textContent=r.error||'Error'};
 }
 function tabMenu(t){
@@ -644,16 +647,21 @@ function paintMode(){
   const b=$('#modeBtn'); b.textContent=MODES[m].label; b.className=m;
   paintModel();
 }
+// ---------- agente (motor) de cada pestaña ----------
+const engineOf=name=>(status.engines||[]).find(e=>e.name===(name||status.engine||'claude'))||{name:'claude',label:'Claude Code',capabilities:{modes:Object.keys(MODES),plan:true,commands:true,images:true,cost:true,resume:true}};
+const caps=()=>engineOf().capabilities||{};
+const agentName=()=>engineOf().label||'Claude';
+const engineModels=()=>engineOf().models||status.models||[];
 // ---------- modelo de cada pestaña ----------
-const modelLabel=v=>((status.models||[]).find(m=>m.value===v)||{}).label||v;
+const modelLabel=v=>(engineModels().find(m=>m.value===v)||{}).label||v;
 function paintModel(){
-  const b=$('#modelBtn'), m=status.model||'default', list=status.models||[];
+  const b=$('#modelBtn'), m=status.model||'default', list=engineModels();
   b.hidden=list.length<2;   // con un solo modelo configurado no hay nada que elegir
   b.textContent='🧠 '+modelLabel(m); b.classList.toggle('custom',m!=='default');
 }
 function modelDialog(){
-  showDialog(`<h3>🧠 Modelo</h3><p class="note">Solo para la pestaña «${esc(status.name||'')}». Se aplica de inmediato, también con una tarea en curso, y en todos tus dispositivos. «Predeterminado» es el que tengas configurado en Claude Code.</p>`);
-  (status.models||[]).forEach(m=>{
+  showDialog(`<h3>🧠 Modelo</h3><p class="note">Solo para la pestaña «${esc(status.name||'')}». Se aplica de inmediato, en todos tus dispositivos. «Predeterminado» es el que tengas configurado en ${esc(agentName())}.</p>`);
+  engineModels().forEach(m=>{
     const r=document.createElement('button'); r.className='mode-opt'+((status.model||'default')===m.value?' on':''); r.dataset.model=m.value;
     r.innerHTML=`${esc(m.label)}${m.label!==m.value?`<small>${esc(m.value)}</small>`:''}`;
     r.onclick=async()=>{dlg.close();if(m.value!==(status.model||'default')){const j=await api('/api/cmd',{cmd:'model',arg:m.value});if(j.status)setStatus(j.status)}};
@@ -687,7 +695,9 @@ async function usageDialog(){
 }
 function modeDialog(){
   showDialog('<h3>Modo de permisos</h3><p class="note">Se aplica de inmediato, incluso con una tarea en curso, y en todos tus dispositivos.</p>');
-  Object.entries(MODES).forEach(([k,v])=>{
+  const allowed=caps().modes||Object.keys(MODES);
+  if(status.engine==='codex')$('#dlgBody').insertAdjacentHTML('beforeend','<p class="note">Con Codex: «Preguntar» usa su política más estricta; «Aceptar ediciones» le deja editar en la carpeta sin preguntar; «Solo planificar» le quita el permiso de escritura. Se aplica desde el próximo mensaje.</p>');
+  Object.entries(MODES).filter(([k])=>allowed.includes(k)).forEach(([k,v])=>{
     const r=document.createElement('button');r.className='mode-opt'+(status.mode===k?' on':'');
     r.innerHTML=`${v.label}<small>${esc(v.desc)}</small>`;
     r.onclick=async()=>{dlg.close();if(k!==status.mode){const j=await api('/api/cmd',{cmd:'mode',arg:k});if(j.status)setStatus(j.status)}};
@@ -707,7 +717,7 @@ function setStatus(s){
   const jk=JSON.stringify(status.jira||null); if(jk!==jiraKey){jiraKey=jk;for(const m of Object.values(logs).concat(Object.keys(logs).length?[]:[log])){m.querySelectorAll('a.jira').forEach(x=>x.replaceWith(x.textContent));m.normalize();linkify(m)}}   // dirección de Jira nueva
   $('#cwd').textContent='📁 '+(status.cwd||'')+(status.session?'  ·  🧵 '+status.session.slice(0,8):'  ·  sesión nueva');
 }
-function idlePlaceholder(){return status.busy?'Claude trabaja: lo que envíes queda en cola…':'Escribe una tarea…'}
+function idlePlaceholder(){return status.busy?`${agentName()} trabaja: lo que envíes queda en cola…`:'Escribe una tarea…'}
 const kb=n=>n<1024?`${n} B`:`${(n/1024).toFixed(n<10240?1:0)} KB`;
 function filesHtml(files){
   if(!files||!files.length)return '';
@@ -1597,7 +1607,8 @@ async function addFiles(files){
     if(SECRET_FILE.test(f.name))toast(`«${f.name}» parece un archivo de secretos: no se adjunta`);
     else if(isText(f))await addTextFile(f); else toast(`«${f.name}»: solo se pueden adjuntar imágenes o archivos de texto`);
   }
-  const imgs=all.filter(f=>f.type.startsWith('image/'));
+  let imgs=all.filter(f=>f.type.startsWith('image/'));
+  if(imgs.length&&!caps().images){toast(`${agentName()} no admite capturas en Mando (sí archivos de texto)`);imgs=[]}
   for(const f of imgs){
     if(attached.length>=MAX_ATTACH){toast(`Máximo ${MAX_ATTACH} capturas por tarea`);break}
     try{attached.push(await prepImage(f))}catch(e){toast('No se pudo usar la imagen: '+(e.message||e))}
@@ -1637,6 +1648,7 @@ async function loadCommands(){
   paintCommands();
 }
 function paintCommands(){
+  if(!caps().commands){$('#cmdList').hidden=true;cmdItems=[];return}
   const box=$('#cmdList'), q=cmdQuery();
   if(q===null||input.value===cmdDismissed){box.hidden=true;cmdItems=[];return}
   box.hidden=false;
@@ -2132,6 +2144,7 @@ document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
     showDialog(`<h3>ℹ️ Estado</h3><p>📁 <code>${esc(s.cwd)}</code></p><p>🧵 ${esc(s.session||'sesión nueva')}</p>
       <p>${s.busy?'⏳ Trabajando':'💤 Libre'} · decisiones pendientes: ${s.pending}</p><p>Gateway: <code>${esc(s.gateway)}</code></p>
       <p>Aprobadas siempre: ${esc(s.always.join(', ')||'—')}</p><p class="note">Mando ${esc(s.version||'')}</p>`)}}
+  else if(cmd==='sessions'&&!caps().resume)toast(`Retomar conversaciones está disponible con Claude Code, no con ${agentName()}`);
   else if(cmd==='sessions'){const j=await api('/api/cmd',{cmd});const list=j.sessions||[];
     showDialog('<h3>🧵 Sesiones recientes</h3>'+(list.length?'':'<p>No hay sesiones guardadas para esta carpeta.</p>'));
     list.forEach(s=>{const r=document.createElement('button');r.className='row';

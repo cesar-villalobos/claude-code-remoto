@@ -76,8 +76,15 @@ class Engine:
         "resume": False,      # retomar conversaciones anteriores
     }
 
+    models: list[str] = ["default"]   # modelos que se pueden elegir por pestaña
+
     def __init__(self, host: Host) -> None:
         self.host = host
+
+    @classmethod
+    def available(cls) -> bool:
+        """Se puede usar en este equipo (p. ej. el CLI está instalado)."""
+        return True
 
     @property
     def connected(self) -> bool:

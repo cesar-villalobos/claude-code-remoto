@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -57,9 +58,42 @@ def build_diff(old: str, new: str, *, numbered: bool, new_file: bool = False) ->
             "new_file": new_file, "truncated": len(lines) > DIFF_MAX_LINES}
 
 
+def parse_unified(text: str, *, new_file: bool = False) -> dict[str, Any]:
+    """Diff unificado (el que entregan Codex o git) → el mismo formato que build_diff."""
+    lines: list[dict[str, Any]] = []
+    added = removed = 0
+    o = n = 0
+    clip = (lambda x: x if len(x) <= DIFF_MAX_LINE_CHARS else x[:DIFF_MAX_LINE_CHARS] + "…")
+    for raw in (text or "").splitlines():
+        if raw.startswith("@@"):
+            m = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", raw)
+            o, n = (int(m.group(1)), int(m.group(2))) if m else (o, n)
+            lines.append({"t": "hunk", "o": o, "n": n})
+        elif raw.startswith(("---", "+++", "diff ", "index ", "new file", "deleted file", "\\")):
+            continue
+        elif raw.startswith("+"):
+            lines.append({"t": "add", "n": n, "s": clip(raw[1:])}); n += 1; added += 1
+        elif raw.startswith("-"):
+            lines.append({"t": "del", "o": o, "s": clip(raw[1:])}); o += 1; removed += 1
+        elif lines:   # contexto (empieza con espacio)
+            lines.append({"t": "ctx", "o": o, "n": n, "s": clip(raw[1:])}); o += 1; n += 1
+    if lines and lines[0]["t"] != "hunk":
+        lines.insert(0, {"t": "hunk", "o": 1, "n": 1})
+    return {"lines": lines[:DIFF_MAX_LINES], "add": added, "del": removed, "numbered": any(x["t"] == "hunk" for x in lines),
+            "new_file": new_file, "truncated": len(lines) > DIFF_MAX_LINES}
+
+
 def edit_diff(tool_name: str, data: dict[str, Any], cwd: str) -> dict[str, Any] | None:
     """Diff de lo que la herramienta va a cambiar, leyendo el archivo real cuando se puede."""
     path = data.get("file_path") or ""
+    if tool_name == "ApplyPatch":   # Codex: ya viene el diff unificado del cambio
+        diff = str(data.get("diff") or "")
+        kind = data.get("kind")
+        if not diff.strip() and kind == "add" and data.get("content") is not None:
+            return build_diff("", str(data["content"]), numbered=True, new_file=True)
+        if not diff.lstrip().startswith(("@@", "---", "diff ")) and kind == "add":   # contenido completo de un archivo nuevo
+            return build_diff("", diff, numbered=True, new_file=True)
+        return parse_unified(diff, new_file=kind == "add") if diff.strip() else None
     if tool_name == "Write":
         new = data.get("content") or ""
         if not file_exists(path, cwd):
