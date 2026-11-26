@@ -1278,6 +1278,39 @@ def test_maximo_de_pestanas(browser, make_server):
     ctx.close()
 
 
+def test_pestana_con_codex(browser, make_server, tmp_path):
+    import sys as _sys
+    from conftest import ROOT
+    (tmp_path / "app.py").write_text("def f():\n    return 1\n")
+    s = make_server("basic", CODEX_CMD=f"{_sys.executable} {ROOT / 'tests' / 'fake_codex.py'}")
+    ctx = new_context(browser, s)
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#tabs [data-tab-add]")
+    page.click("#tabs [data-tab-add]")
+    page.fill("#tabName", "Back")
+    page.select_option("#tabEngine", "codex")
+    page.fill("#tabCwd", str(tmp_path))
+    page.click("#tabForm button[type=submit]")
+    page.wait_for_selector("#tabs .tab.on:has-text('Back') .tengine:has-text('Codex')")
+    page.click("#modeBtn")
+    assert page.locator("#dlgBody .mode-opt").count() == 3                 # los modos que entiende Codex
+    page.click("#dlgClose")
+    page.fill("#input", "/")
+    assert page.locator("#cmdList").is_hidden()                            # sin comandos «/» con Codex
+    page.fill("#input", "arregla f")
+    page.click("#send")
+    page.wait_for_selector(".msg:not(.user):has-text('Reviso el proyecto con Codex.')")
+    page.wait_for_selector(".card:not(.closed):has-text('npm test')")
+    page.click(".card:not(.closed) .yes")
+    page.wait_for_selector(".card:not(.closed):has-text('app.py') .diff .dl.add:has-text('return 2')")
+    page.click(".card:not(.closed) .yes")
+    page.wait_for_selector(".msg:not(.user):has-text('comando=accept archivos=accept')")
+    page.wait_for_selector(".done:has-text('tokens')")
+    assert (tmp_path / "app.py").read_text().endswith("return 2\n")
+    ctx.close()
+
+
 def test_aprobacion_sigue_abierta_si_tardo_en_responder(browser, make_server):
     """Antes, a los 5 s se cerraba como «ya no está pendiente» con un estado viejo de la pestaña."""
     s = make_server("basic")

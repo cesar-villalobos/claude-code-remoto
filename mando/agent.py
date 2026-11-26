@@ -25,7 +25,6 @@ from .config import (
     DEFAULT_WORKDIR,
     MODEL,
     MODEL_LABELS,
-    MODELS,
     PERMISSION_MODES,
     STREAM_INTERVAL,
     TLS_CERT,
@@ -33,7 +32,13 @@ from .config import (
 )
 from .decisions import CANCELLED, PENDING, Pending, tool_trace, tool_view, wait_decision
 from .diff import edit_diff
-from .engines import Decision, TurnResult, engine_class
+from .engines import (
+    DEFAULT_ENGINE,
+    Decision,
+    TurnResult,
+    available_engines,
+    engine_class,
+)
 from .engines.claude import (  # noqa: F401 — se usan desde otros módulos y pruebas
     gateway_host,
     normalize_commands,
@@ -84,17 +89,18 @@ class Agent:
         self.task: asyncio.Task | None = None
         self.always_allow: set[str] = set()
         self.rules: list[dict[str, Any]] = shared_rules()
+        self.engine = engine_class(tab.get("engine"))(self)   # el agente de esta pestaña
         saved_model = tab.get("model") or ""
-        self.model: str = saved_model if saved_model in MODELS else ""  # "" = predeterminado
+        self.model: str = saved_model if saved_model in self.engine.models else ""  # "" = predeterminado
         saved_mode = tab.get("mode")
-        self.mode: str = saved_mode if saved_mode in PERMISSION_MODES else DEFAULT_MODE
+        modes = self.engine.capabilities.get("modes") or list(PERMISSION_MODES)
+        self.mode: str = saved_mode if saved_mode in modes else (DEFAULT_MODE if DEFAULT_MODE in modes else modes[0])
         self.started_at: float | None = None  # para el cronómetro de la animación
         # Texto parcial en curso y bloques terminados que esperan su mensaje definitivo
         self.stream: dict[str, Any] | None = None
         self.finished_streams: list[dict[str, Any]] = []
         self.final_texts: set[str] = set()   # respuestas definitivas de la tarea en curso
         self.last_stream_emit = 0.0
-        self.engine = engine_class(tab.get("engine"))(self)   # el agente de esta pestaña
 
     def emit(self, type_: str, **data: Any) -> dict[str, Any] | None:
         if self.closed:  # sesión cerrada: lo que quede de su tarea no vuelve al historial
@@ -264,7 +270,7 @@ class Agent:
                                summary=tool_trace(tool_name, data), tab=self.id)
         title, detail = tool_view(tool_name, data)
         extra: dict[str, Any] = {}
-        if tool_name in ("Edit", "MultiEdit", "Write"):
+        if tool_name in ("Edit", "MultiEdit", "Write", "ApplyPatch"):
             try:
                 diff = edit_diff(tool_name, data, self.cwd)
             except Exception:  # noqa: BLE001 — el diff es una ayuda visual, nunca debe bloquear
@@ -272,7 +278,7 @@ class Agent:
                 diff = None
             if diff:
                 extra["diff"] = diff
-                if diff["new_file"]:
+                if diff["new_file"] and tool_name != "ApplyPatch":
                     title = f"📄 Crear archivo · {data.get('file_path', '')}"
                 detail = f"+{diff['add']} −{diff['del']} líneas"
         suggestion = suggest_rule(tool_name, data, self.cwd)
@@ -555,9 +561,9 @@ class Agents:
             STATE.pop(k, None)
         save_state(STATE)
 
-    def create(self, name: str, cwd: str | None = None) -> Agent:
+    def create(self, name: str, cwd: str | None = None, engine: str | None = None) -> Agent:
         agent = Agent({"id": secrets.token_hex(4), "name": name, "cwd": cwd or self.first().cwd,
-                       "mode": self.first().mode})
+                       "mode": self.first().mode, "engine": engine or DEFAULT_ENGINE})
         self.items[agent.id] = agent
         self.persist()
         return agent
@@ -597,7 +603,9 @@ def global_status(tab_id: Any = None) -> dict[str, Any]:
         "tab": agent.id,
         "tabs": [a.status() for a in AGENTS],
         "max_tabs": MAX_TABS,
-        "models": [{"value": m, "label": model_label(m)} for m in MODELS],
+        "models": [{"value": m, "label": model_label(m)} for m in agent.engine.models],   # los del motor de la pestaña
+        "engines": [{**e, "models": [{"value": m, "label": model_label(m)} for m in e["models"]]}
+                    for e in available_engines()],   # Claude Code y, si está instalado, Codex
         "version": __version__,
         "update": update_info(),   # versión nueva disponible, si la hay
         "budget": budget.info(),   # límite de gasto mensual

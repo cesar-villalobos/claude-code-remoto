@@ -210,6 +210,27 @@ Detalles:
 
 > **Importante:** el arranque automático no ve las variables que defines en la terminal (por ejemplo, las del gateway o el proxy en tu `~/.bashrc` o `~/.zshrc`). Al instalar, te avisa cuáles faltan en `.env`, mostrando solo los nombres: cópialas a `.env` y reinicia el servicio. Lo que está en la configuración de Claude Code (`~/.claude/settings.json`) sí funciona igual.
 
+## Codex (experimental)
+Además de Claude Code, una pestaña puede usar **Codex**, el agente de programación de OpenAI. Al crear la pestaña (＋) aparece el selector **Agente**, si Codex está instalado en el PC. Las pestañas con Codex muestran la etiqueta «Codex».
+
+**Requisitos:**
+- Codex CLI instalado (el comando `codex`) e iniciada la sesión (`codex login`, o una clave de API).
+- Con un gateway corporativo, el proveedor se configura en Codex (`~/.codex/config.toml`), igual que en la terminal.
+- Codex no usa el proxy ni el certificado de Claude (`CORP_PROXY`, `CORP_CA_BUNDLE`, ni `HTTPS_PROXY` o `SSL_CERT_FILE` del entorno): con un proxy pensado para el gateway de Claude fallaba con «workspace routing discovery failed». Si Codex necesita un proxy propio, defínelo con `CODEX_PROXY`, `CODEX_NO_PROXY` y `CODEX_CA_BUNDLE`.
+- Si `codex` no está en el PATH, o quieres otro comando, usa `CODEX_CMD` (por defecto `codex app-server`).
+
+**Cómo funciona:** Mando lanza `codex app-server` y le habla directamente, sin otras dependencias. Lo que Codex pide aprobar pasa por las **mismas tarjetas y reglas** que con Claude Code: los comandos aparecen como «💻 Ejecutar comando» y los cambios de archivos como una tarjeta por archivo, con su diff. También funcionan la cola, el texto en vivo, el resumen de cambios, la búsqueda, la exportación, las tareas programadas y Web Push.
+
+**Modos con Codex:** 🛡️ Preguntar usa su política más estricta (`untrusted`). ✏️ Aceptar ediciones le deja editar en la carpeta sin preguntar (`on-request`). 📋 Solo planificar le quita el permiso de escritura (`read-only`). El cambio se aplica desde el próximo mensaje. Se pueden forzar con `CODEX_APPROVAL_POLICY` y `CODEX_SANDBOX`.
+
+**Diferencias con Claude Code:**
+- Lo que Codex ejecuta sin pedir aprobación, según su política, no pasa por las reglas de Mando. Por eso el modo «Preguntar» usa la política más estricta.
+- No muestra el costo en US$: registra los tokens, y el límite de gasto no los cuenta.
+- Sin capturas (sí archivos de texto), sin comandos «/», sin tarjeta de plan y sin «Retomar conversación». Cada pestaña sí retoma su propia conversación con Codex al reiniciar.
+- Los modelos se configuran con `CODEX_MODELS`, por ejemplo `default,gpt-5-codex`.
+
+Es experimental: las pruebas usan un Codex simulado que habla el mismo protocolo. Si algo no funciona con tu versión de Codex, el registro del servidor muestra el detalle.
+
 ## Instrucciones por voz
 Toca 🎤, habla y vuelve a tocar para terminar (máximo 2 minutos). El texto se agrega al cuadro para que lo revises antes de enviarlo.
 
@@ -332,6 +353,7 @@ Para usarlo fuera de casa, usa una Raspberry Pi (o un PC) como puente de Tailsca
 | `agent.py` | Pestañas: cola, tarjetas de decisión, reglas, burbujas en vivo, resumen de cambios y costo (sin saber qué agente hay detrás) |
 | `engines/base.py` | Contrato común de los motores: qué pide y qué entrega cada agente |
 | `engines/claude.py` | Motor Claude Code (claude-agent-sdk) |
+| `engines/codex.py` | Motor Codex (experimental): `codex app-server` por JSON-RPC |
 | `claude_sessions.py` | Sesiones guardadas de Claude Code y carpetas permitidas |
 | `auth.py` | Filtro de IP, límites de intentos, token y cookies |
 | `api.py` | API que usa la interfaz (`/api/send`, `/api/decide`, `/api/cmd`) |
@@ -381,6 +403,7 @@ El proyecto tiene pruebas automáticas que usan un **Claude Code simulado** (`te
 | `test_adjuntar_texto.py` | Archivos de texto: validación, secretos, formato para Claude, que llegue a Claude y que no quede en el historial ni en la auditoría |
 | `test_programadas.py` | Tareas programadas: próxima ejecución, validación, ejecución a su hora, ejecutar ahora y ejecuciones perdidas |
 | `test_resumen_diario.py` | Resumen del día: conteos por pestaña, solo el día en curso, sin textos, cuándo se envía y configuración |
+| `test_codex.py` | Motor Codex contra un Codex simulado: turno completo, aprobaciones, reglas, detener, fallos, modos y resumen de cambios |
 | `test_motores.py` | Capa de motores: una pestaña funciona con cualquier motor que cumpla el contrato |
 | `test_jira.py` | Enlaces a Jira: configuración, validación y valores de `.env` |
 | `test_plantillas.py` | Plantillas: ejemplos, edición, validación, orden, límite y persistencia |

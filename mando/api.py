@@ -37,12 +37,12 @@ from .claude_sessions import list_sessions, resolve_dir
 from .config import (
     ALLOWED_ROOTS,
     MAX_COMMENT,
-    MODELS,
     PERMISSION_MODES,
     SESSION_DAYS,
     log,
 )
 from .decisions import PENDING, resolve
+from .engines import DEFAULT_ENGINE, available_engines
 from .hub import HUB
 from .rules import RULE_KINDS, rule_label, validate_rule
 from .sessions import SESSIONS
@@ -78,6 +78,8 @@ async def api_send(body: dict[str, Any]) -> tuple[int, dict]:
     agent = AGENTS.get(body.get("tab"))
     if agent is None:
         return 404, {"error": "Esa sesión ya no existe"}
+    if images and not agent.engine.capabilities.get("images"):
+        return 400, {"error": f"{agent.engine.label} no admite capturas en Mando (sí archivos de texto)"}
     result = agent.submit(text, images, files)
     if result == "full":
         return 409, {"error": f"La cola de esta sesión está llena ({MAX_QUEUE} mensajes)"}
@@ -196,9 +198,13 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
             cwd = resolve_dir(str(body["cwd"]), agent.cwd)
             if not cwd:
                 return 400, {"error": "Carpeta inexistente o fuera de ALLOWED_ROOTS"}
-        new = AGENTS.create(name, cwd)
-        audit("tab_new", tab=new.name, cwd=new.cwd)
-        new.emit("info", text=f"🗂️ Sesión «{new.name}» · 📁 {new.cwd}")
+        engine = str(body.get("engine") or DEFAULT_ENGINE)
+        engines = {e["name"]: e for e in available_engines()}
+        if engine not in engines:
+            return 400, {"error": "Ese agente no está disponible en este equipo"}
+        new = AGENTS.create(name, cwd, engine)
+        audit("tab_new", tab=new.name, cwd=new.cwd, engine=engine)
+        new.emit("info", text=f"🗂️ Sesión «{new.name}» · {engines[engine]['label']} · 📁 {new.cwd}")
         emit_status()
         return 200, {"ok": True, "tab": new.id, "status": global_status(new.id)}
     elif cmd == "tab_rename":
@@ -218,6 +224,8 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
         emit_status()
         return 200, {"ok": True, "status": global_status()}
     elif cmd == "sessions":
+        if not agent.engine.capabilities.get("resume"):
+            return 400, {"error": f"{agent.engine.label} no permite retomar conversaciones desde aquí"}
         return 200, {"sessions": list_sessions(agent.cwd)}
     elif cmd == "resume":
         if not re.fullmatch(r"[A-Za-z0-9-]{8,64}", arg):
@@ -442,8 +450,8 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
             return 404, {"error": "Ese mensaje ya no está en la cola"}
         return 200, {"ok": True}
     elif cmd == "model":
-        if arg not in MODELS:
-            return 400, {"error": "Modelo no permitido (ver CLAUDE_MODELS)"}
+        if arg not in agent.engine.models:
+            return 400, {"error": "Modelo no permitido (ver CLAUDE_MODELS o CODEX_MODELS)"}
         if (arg if arg != "default" else "") != agent.model:
             await agent.set_model(arg)
     elif cmd == "export_md":
@@ -474,8 +482,8 @@ async def api_cmd(body: dict[str, Any]) -> tuple[int, dict]:
         audit("backup_export")
         return 200, {"ok": True, "backup": backup.export_data()}
     elif cmd == "mode":
-        if arg not in PERMISSION_MODES:
-            return 400, {"error": "Modo no permitido"}
+        if arg not in PERMISSION_MODES or arg not in agent.engine.capabilities.get("modes", []):
+            return 400, {"error": "Modo no permitido para este agente"}
         if arg != agent.mode:
             await agent.set_mode(arg)
     elif cmd == "status":

@@ -18,7 +18,7 @@ RULE_KINDS = {
 }
 
 
-EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "ApplyPatch"}   # ApplyPatch: cambios de Codex
 
 
 READ_TOOLS = {"Read", "Glob", "Grep", "LS"}

@@ -38,6 +38,11 @@ def tool_view(tool_name: str, data: dict[str, Any]) -> tuple[str, str]:
     """(título, detalle) de una petición de herramienta."""
     if tool_name == "Bash":
         return "💻 Ejecutar comando", data.get("command", "")
+    if tool_name == "ApplyPatch":   # Codex: un archivo de su lote de cambios
+        path = data.get("file_path", "")
+        verb = {"add": "📄 Crear archivo", "delete": "🗑️ Borrar archivo"}.get(data.get("kind"), "✏️ Cambiar")
+        moved = f" → {data['move_path']}" if data.get("move_path") else ""
+        return f"{verb} · {path}{moved}", str(data.get("diff") or "")[:3000]
     if tool_name in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
         path = data.get("file_path") or data.get("notebook_path", "")
         body = data.get("content") or data.get("new_string") or ""

@@ -29,6 +29,7 @@ from ..config import (
     GATEWAY_VARS,
     MCP_SERVERS,
     MODEL,
+    MODELS,
     NO_PROXY,
     PERMISSION_MODES,
     STREAM_TEXT,
@@ -92,6 +93,7 @@ class ClaudeEngine(Engine):
         "cost": True,
         "resume": True,
     }
+    models = MODELS
 
     def __init__(self, host: Host) -> None:
         super().__init__(host)

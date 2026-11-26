@@ -19,7 +19,7 @@ from typing import Any
 
 from .diff import DIFF_MAX_FILE, build_diff
 
-EDIT_TOOLS = ("Edit", "MultiEdit", "Write", "NotebookEdit")
+EDIT_TOOLS = ("Edit", "MultiEdit", "Write", "NotebookEdit", "ApplyPatch")
 MAX_FILES = 50               # archivos con diff en el resumen (el resto solo se cuenta)
 MAX_SNAPSHOT = 5_000_000     # bytes guardados al inicio de los archivos que ya tenían cambios
 GIT_TIMEOUT = 10
