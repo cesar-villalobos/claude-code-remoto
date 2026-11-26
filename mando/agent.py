@@ -1,4 +1,8 @@
-"""Claude Code: conexión, permisos, hooks, streaming y ejecución de tareas."""
+"""Pestañas (sesiones): cola, tarjetas de decisión, reglas, burbujas en vivo, resumen de cambios y costo.
+
+El agente de programación de cada pestaña está detrás de un motor (mando/engines): esta capa no
+sabe si es Claude Code u otro.
+"""
 
 from __future__ import annotations
 
@@ -9,50 +13,31 @@ import secrets
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
-
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ClaudeSDKClient,
-    ResultMessage,
-    TextBlock,
-    ToolUseBlock,
-)
-from claude_agent_sdk.types import (
-    HookMatcher,
-    PermissionResultAllow,
-    PermissionResultDeny,
-    ToolPermissionContext,
-)
 
 from . import __version__, budget, changes, rule_suggest, usage
-from .attachments import content_blocks, files_meta, with_files
+from .attachments import files_meta, with_files
 from .audit import REQUEST, audit
 from .config import (
-    AUTO_APPROVE,
     AUTO_APPROVE_PREFIXES,
     CA_CERT,
     CHANGES_SUMMARY,
-    CORP_CA_BUNDLE,
-    CORP_PROXY,
     DEFAULT_MODE,
     DEFAULT_WORKDIR,
-    GATEWAY_VARS,
-    MCP_SERVERS,
     MODEL,
     MODEL_LABELS,
     MODELS,
-    NO_PROXY,
     PERMISSION_MODES,
     STREAM_INTERVAL,
-    STREAM_TEXT,
-    SYSTEM_APPEND,
     TLS_CERT,
     log,
 )
 from .decisions import CANCELLED, PENDING, Pending, tool_trace, tool_view, wait_decision
 from .diff import edit_diff
+from .engines import Decision, TurnResult, engine_class
+from .engines.claude import (  # noqa: F401 — se usan desde otros módulos y pruebas
+    gateway_host,
+    normalize_commands,
+)
 from .hub import HUB
 from .jira import config as jira_config
 from .rules import DEFAULT_RULES, find_rule, rule_label, suggest_rule
@@ -61,53 +46,9 @@ from .templates import version as tpl_version
 from .updates import update_info
 from .voice import engine as voice_engine
 
-try:  # texto en tiempo real (SDK reciente); sin él la app funciona igual, sin streaming
-    from claude_agent_sdk.types import StreamEvent
-except ImportError:  # pragma: no cover
-    StreamEvent = None
-
-
-def gateway_host() -> str | None:
-    url = os.getenv("ANTHROPIC_BASE_URL")
-    return urlparse(url).hostname if url else None
-
-
-def claude_env() -> dict[str, str]:
-    env: dict[str, str] = {k: os.environ[k] for k in GATEWAY_VARS if os.getenv(k)}
-    no_proxy = [h for h in NO_PROXY.split(",") if h]
-    if CORP_PROXY:
-        env.update(HTTPS_PROXY=CORP_PROXY, HTTP_PROXY=CORP_PROXY)
-        if (host := gateway_host()) and host not in no_proxy:
-            no_proxy.append(host)
-    if no_proxy:
-        env["NO_PROXY"] = ",".join(no_proxy)
-    if CORP_CA_BUNDLE:
-        env["NODE_EXTRA_CA_CERTS"] = os.path.expanduser(CORP_CA_BUNDLE)
-    return env
-
 
 def model_label(value: str) -> str:
     return MODEL_LABELS.get(value, value)
-
-
-MAX_COMMANDS = 300
-
-
-def normalize_commands(raw: list[Any]) -> list[dict[str, str]]:
-    """Lista de comandos del CLI → [{name, description, hint}], sin «/» y ordenada."""
-    out: dict[str, dict[str, str]] = {}
-    for c in raw:
-        if isinstance(c, str):
-            c = {"name": c}
-        if not isinstance(c, dict):
-            continue
-        name = str(c.get("name") or "").strip().lstrip("/")
-        if not name or len(name) > 80 or any(ch.isspace() for ch in name):
-            continue
-        out[name] = {"name": name,
-                     "description": str(c.get("description") or "").strip()[:200],
-                     "hint": str(c.get("argumentHint") or c.get("argument_hint") or "").strip()[:80]}
-    return sorted(out.values(), key=lambda c: c["name"].lower())[:MAX_COMMANDS]
 
 
 MAX_TABS = int(os.getenv("MAX_SESSIONS", "6"))   # cada sesión mantiene su propio proceso de Claude Code
@@ -130,9 +71,12 @@ class Agent:
         self.name: str = tab.get("name") or "Sesión"
         self.cwd: str = tab.get("cwd") or DEFAULT_WORKDIR
         self.session_id: str | None = tab.get("session_id")
-        self.client: ClaudeSDKClient | None = None
+        # último total acumulado informado por sesión, para registrar solo lo gastado en cada turno
+        self.cost_seen: dict[str, float] = {str(k): float(v) for k, v in (tab.get("cost_seen") or {}).items()
+                                            if isinstance(v, (int, float))}
         self.closed = False
         self.finishing = False
+        self.stopping = False   # se pidió detener la tarea en curso
         self.queue: list[dict[str, Any]] = []   # mensajes enviados mientras trabajaba
         self.tracker: changes.Tracker | None = None   # archivos que cambia la tarea en curso
         self.commands_cache: list[dict[str, str]] | None = None  # comandos «/» de esta conexión
@@ -147,15 +91,18 @@ class Agent:
         self.started_at: float | None = None  # para el cronómetro de la animación
         # Texto parcial en curso y bloques terminados que esperan su mensaje definitivo
         self.stream: dict[str, Any] | None = None
-        self.stream_msg_id: str | None = None
         self.finished_streams: list[dict[str, Any]] = []
         self.final_texts: set[str] = set()   # respuestas definitivas de la tarea en curso
         self.last_stream_emit = 0.0
+        self.engine = engine_class(tab.get("engine"))(self)   # el agente de esta pestaña
 
     def emit(self, type_: str, **data: Any) -> dict[str, Any] | None:
         if self.closed:  # sesión cerrada: lo que quede de su tarea no vuelve al historial
             return None
-        return HUB.emit(type_, tab=self.id, **data)
+        ev = HUB.emit(type_, tab=self.id, **data)
+        if type_ in ("perm", "question"):
+            emit_status()   # el estado de las pestañas trae las decisiones pendientes al día
+        return ev
 
     # -- respuestas en tiempo real -----------------------------------------
     def current_stream(self) -> dict[str, Any] | None:
@@ -167,22 +114,68 @@ class Agent:
             self.last_stream_emit = time.monotonic()
             self.emit("stream", sid=self.stream["sid"], text=self.stream["text"])
 
-    def on_stream_event(self, ev: dict[str, Any]) -> None:
-        """Procesa los eventos crudos de la API (message_start, content_block_*)."""
-        kind = ev.get("type")
-        if kind == "message_start":
-            self.stream_msg_id = (ev.get("message") or {}).get("id")
-        elif kind == "content_block_start" and (ev.get("content_block") or {}).get("type") == "text":
-            self.stream = {"sid": secrets.token_hex(4), "text": "", "msg": self.stream_msg_id}
-        elif kind == "content_block_delta" and self.stream and (ev.get("delta") or {}).get("type") == "text_delta":
-            self.stream["text"] += ev["delta"].get("text", "")
-            if time.monotonic() - self.last_stream_emit >= STREAM_INTERVAL:
-                self.emit_stream()
-        elif kind == "content_block_stop" and self.stream:
-            self.emit_stream()  # último fragmento
-            if self.stream["text"]:
-                self.finished_streams.append(self.stream)
-            self.stream = None
+    def stream_start(self, message_id: str | None) -> None:
+        """El motor empieza a escribir un bloque de texto (se ve en vivo en todos los dispositivos)."""
+        self.stream = {"sid": secrets.token_hex(4), "text": "", "msg": message_id}
+
+    def stream_delta(self, text: str) -> None:
+        if self.stream is None:
+            return
+        self.stream["text"] += text
+        if time.monotonic() - self.last_stream_emit >= STREAM_INTERVAL:
+            self.emit_stream()
+
+    def stream_stop(self) -> None:
+        if self.stream is None:
+            return
+        self.emit_stream()  # último fragmento
+        if self.stream["text"]:
+            self.finished_streams.append(self.stream)
+        self.stream = None
+
+    def final_text(self, text: str, message_id: str | None = None, subagent: bool = False) -> None:
+        """Texto definitivo de una respuesta: reemplaza a su burbuja en vivo, si la hay."""
+        if not text.strip():
+            return
+        st = None if subagent else self.take_stream(message_id)
+        self.emit("assistant", text=text, **({"replaces": st["sid"]} if st else {}))
+        if not subagent:
+            self.final_texts.add(text.strip())
+
+    def tool_used(self, tool_name: str, data: dict[str, Any]) -> None:
+        self.emit("tool", text=tool_trace(tool_name, data))
+        audit("tool", tool=tool_name, target=tool_trace(tool_name, data))
+
+    def turn_result(self, r: TurnResult) -> None:
+        """Fin de un turno: sesión para retomar, costo y uso, aviso del límite de gasto."""
+        if r.session_id:
+            self.session_id = r.session_id
+            self.persist()
+        cost = self.turn_cost(r)
+        before = budget.info()
+        rec = usage.record(tab=self.name, tab_id=self.id, cost=cost, usage=r.usage, duration=self.elapsed(),
+                           turns=r.turns, model=r.model or self.model or MODEL or "default", ok=not r.is_error)
+        self.emit("done", ok=not r.is_error, cost=cost, tokens=rec["in"] + rec["out"],
+                  duration=self.elapsed())  # para avisar al terminar tareas largas
+        notice = budget.crossed(before, budget.info())
+        if notice:
+            HUB.emit("info", text=notice)   # en todas las pestañas
+            emit_status()
+
+    def turn_cost(self, r: TurnResult) -> float | None:
+        """Lo gastado en este turno. Si el motor informa el total acumulado de la sesión, se resta
+        el último total visto de esa sesión; si bajó (/clear, o una sesión retomada sin total
+        guardado), el total informado es todo lo nuevo."""
+        if r.cost is None or not r.cost_cumulative:
+            return r.cost
+        key = r.session_id or self.session_id or ""
+        total = float(r.cost)
+        last = self.cost_seen.get(key, 0.0)
+        self.cost_seen[key] = total
+        while len(self.cost_seen) > 20:   # solo las sesiones recientes
+            self.cost_seen.pop(next(iter(self.cost_seen)))
+        self.persist()
+        return round(total - last, 6) if total >= last else total
 
     def take_stream(self, message_id: str | None) -> dict[str, Any] | None:
         """Bloque parcial que corresponde al mensaje definitivo (mismo message_id, en orden)."""
@@ -205,7 +198,7 @@ class Agent:
                 self.emit("stream_drop", sid=st["sid"])
             else:
                 self.emit("assistant", text=st["text"], replaces=st["sid"])
-        self.stream, self.finished_streams, self.stream_msg_id = None, [], None
+        self.stream, self.finished_streams = None, []
         self.final_texts = set()
 
     def elapsed(self) -> float:
@@ -219,7 +212,7 @@ class Agent:
 
     def tab_state(self) -> dict[str, Any]:
         return {"id": self.id, "name": self.name, "cwd": self.cwd, "session_id": self.session_id, "mode": self.mode,
-                "model": self.model}
+                "model": self.model, "engine": self.engine.name, "cost_seen": self.cost_seen}
 
     def persist(self) -> None:
         AGENTS.persist()
@@ -233,19 +226,24 @@ class Agent:
             "cwd": self.cwd,
             "session": self.session_id,
             "pending": sum(1 for p in PENDING.values() if p.tab == self.id),
+            "pending_refs": [k for k, p in PENDING.items() if p.tab == self.id],   # la interfaz cierra solo las que ya no están
             "always": sorted(self.always_allow),
             "mode": self.mode,
             "model": self.model or "default",
             "since": self.started_at,  # inicio de la tarea actual (epoch del servidor)
             "queued": len(self.queue),
+            "engine": self.engine.name,
         }
 
     # -- permisos ---------------------------------------------------------
-    async def can_use_tool(self, tool_name: str, data: dict[str, Any], ctx: ToolPermissionContext):
+    async def decide_tool(self, tool_name: str, data: dict[str, Any]) -> Decision:
+        """El motor pide usar una herramienta: reglas, aprobación siempre, o tarjeta para decidir."""
+        if self.stopping:   # se pidió detener: lo que el agente alcance a pedir ya no muestra tarjetas
+            return Decision(False, "El usuario detuvo la tarea.", interrupt=True)
         if tool_name == "AskUserQuestion":
             return await self.ask_questions(data)
         if tool_name in self.always_allow or any(tool_name.startswith(p) for p in AUTO_APPROVE_PREFIXES):
-            return PermissionResultAllow(updated_input=data)
+            return Decision(True)
 
         if tool_name == "ExitPlanMode":
             return await self.review_plan(data)
@@ -254,12 +252,12 @@ class Agent:
         rule = find_rule(self.rules, "deny", tool_name, data, self.cwd)
         if rule:
             audit("blocked", tool=tool_name, target=tool_trace(tool_name, data), rule=rule_label(rule))
-            return PermissionResultDeny(message=self.deny_message(rule))
+            return Decision(False, self.deny_message(rule))
         rule = find_rule(self.rules, "allow", tool_name, data, self.cwd)
         if rule:
             self.emit("info", text=f"⚖️ Aprobado por regla: {tool_trace(tool_name, data)} · {rule_label(rule)}")
             audit("auto_approved", tool=tool_name, target=tool_trace(tool_name, data), rule=rule_label(rule))
-            return PermissionResultAllow(updated_input=data)
+            return Decision(True)
 
         pid = secrets.token_hex(6)
         PENDING[pid] = Pending(future=asyncio.get_running_loop().create_future(), kind="perm", tool_name=tool_name,
@@ -286,7 +284,7 @@ class Agent:
         except asyncio.TimeoutError:
             self.emit("decided", ref=pid, label="⌛ Sin respuesta: rechazado")
             audit("decision", tool=tool_name, target=tool_trace(tool_name, data), result="⌛ sin respuesta")
-            return PermissionResultDeny(message="El usuario no respondió a tiempo.")
+            return Decision(False, "El usuario no respondió a tiempo.")
         choice, comment = (decision.get("choice"), decision.get("comment", "")) if isinstance(decision, dict) \
             else (decision, "")
         if choice == "a":
@@ -296,34 +294,31 @@ class Agent:
             if offer:   # lo aprobaste varias veces: ¿permitir siempre?
                 self.emit("rule_suggest", **offer)
         if choice in ("y", "a"):
-            return PermissionResultAllow(updated_input=data)
+            return Decision(True)
         if comment:
             # Claude recibe el motivo y puede corregir el rumbo en vez de detenerse
-            return PermissionResultDeny(message=(
+            return Decision(False, (
                 f"El usuario rechazó esta acción y comentó: «{comment}». "
                 "Ten en cuenta su comentario y propón otra forma de continuar."))
-        return PermissionResultDeny(message="El usuario rechazó esta acción.")
+        return Decision(False, "El usuario rechazó esta acción.")
 
     def deny_message(self, rule: dict[str, Any]) -> str:
         return (f"Bloqueado por una regla del usuario ({rule_label(rule)}"
                 + (f": {rule['note']}" if rule.get("note") else "") + "). "
                 "No intentes lograr lo mismo de otra forma; si es imprescindible, explícale al usuario por qué.")
 
-    async def pre_tool_hook(self, hook_input: dict[str, Any], tool_use_id: str | None, context: Any) -> dict[str, Any]:
-        """Hook PreToolUse: se ejecuta antes de cada herramienta, en cualquier modo de permisos."""
-        tool_name = hook_input.get("tool_name", "")
-        data = hook_input.get("tool_input") or {}
+    async def pre_tool(self, tool_name: str, data: dict[str, Any]) -> str | None:
+        """Antes de cada herramienta, en cualquier modo de permisos: el motivo si una regla la bloquea."""
         rule = find_rule(self.rules, "deny", tool_name, data, self.cwd)
         if not rule:
             if self.tracker:   # contenido original, para el resumen de cambios al terminar
                 await asyncio.to_thread(self.tracker.before_tool, tool_name, data)
-            return {}
+            return None
         self.emit("info", text=f"⛔ Bloqueado por regla: {tool_trace(tool_name, data)} · {rule_label(rule)}")
         audit("blocked", tool=tool_name, target=tool_trace(tool_name, data), rule=rule_label(rule))
-        return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                       "permissionDecisionReason": self.deny_message(rule)}}
+        return self.deny_message(rule)
 
-    async def review_plan(self, data: dict[str, Any]):
+    async def review_plan(self, data: dict[str, Any]) -> Decision:
         """Claude terminó de planificar: aprobar (y en qué modo seguir) o pedir cambios."""
         pid = secrets.token_hex(6)
         PENDING[pid] = Pending(future=asyncio.get_running_loop().create_future(), kind="perm", tool_name="ExitPlanMode",
@@ -335,7 +330,7 @@ class Agent:
             decision = await wait_decision(pid)
         except asyncio.TimeoutError:
             self.emit("decided", ref=pid, label="⌛ Sin respuesta: rechazado")
-            return PermissionResultDeny(message="El usuario no respondió a tiempo.")
+            return Decision(False, "El usuario no respondió a tiempo.")
         choice, comment = (decision.get("choice"), decision.get("comment", "")) if isinstance(decision, dict) \
             else (decision, "")
         if choice in ("y", "e"):
@@ -343,14 +338,14 @@ class Agent:
             # esperar una respuesta del CLI mientras este espera la nuestra.
             new_mode = "acceptEdits" if choice == "e" else "default"
             asyncio.get_running_loop().call_later(0.2, lambda: asyncio.create_task(self.set_mode(new_mode)))
-            return PermissionResultAllow(updated_input=data)
+            return Decision(True)
         if comment:
-            return PermissionResultDeny(message=(
+            return Decision(False, (
                 f"El usuario no aprobó el plan y pidió cambios: «{comment}». "
                 "Ajusta el plan según su comentario y vuelve a presentarlo."))
-        return PermissionResultDeny(message="El usuario no aprobó el plan. Sigue en modo plan.")
+        return Decision(False, "El usuario no aprobó el plan. Sigue en modo plan.")
 
-    async def ask_questions(self, data: dict[str, Any]):
+    async def ask_questions(self, data: dict[str, Any]) -> Decision:
         answers: dict[str, str] = {}
         for q in data.get("questions", []):
             pid = secrets.token_hex(6)
@@ -368,61 +363,31 @@ class Agent:
                 answer = await wait_decision(pid)
             except asyncio.TimeoutError:
                 self.emit("decided", ref=pid, label="⌛ Sin respuesta")
-                return PermissionResultDeny(message="El usuario no respondió la pregunta a tiempo.")
+                return Decision(False, "El usuario no respondió la pregunta a tiempo.")
             if answer == CANCELLED:
-                return PermissionResultDeny(message="El usuario canceló la tarea.")
+                return Decision(False, "El usuario canceló la tarea.")
             answers[q.get("question", "")] = answer
-        return PermissionResultAllow(updated_input={"questions": data.get("questions", []), "answers": answers})
+        return Decision(True, updated_input={"questions": data.get("questions", []), "answers": answers})
 
     # -- ciclo de vida ----------------------------------------------------
-    def options(self) -> ClaudeAgentOptions:
-        kwargs: dict[str, Any] = dict(
-            cwd=self.cwd,
-            permission_mode=self.mode,
-            allowed_tools=AUTO_APPROVE,
-            can_use_tool=self.can_use_tool,
-            setting_sources=["user", "project", "local"],
-            mcp_servers=MCP_SERVERS,  # además de los configurados en Claude Code (claude mcp add)
-            system_prompt={"type": "preset", "preset": "claude_code", "append": SYSTEM_APPEND},
-            env=claude_env(),
-            include_partial_messages=STREAM_TEXT and StreamEvent is not None,
-            hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.pre_tool_hook])]},
-        )
-        if self.session_id:
-            kwargs["resume"] = self.session_id
-        model = self.model if self.model not in ("", "default") else MODEL
-        if model:
-            kwargs["model"] = model
-        return ClaudeAgentOptions(**kwargs)
+    def options(self):
+        """Opciones del motor (solo Claude Code; se usan en las pruebas)."""
+        return self.engine.options()
 
     async def commands(self) -> list[dict[str, str]]:
-        """Comandos «/» que ofrece Claude Code (integrados, .claude/commands, skills, prompts MCP)."""
+        """Comandos «/» que ofrece el agente (se guardan mientras dure la conexión)."""
         if self.commands_cache is None:
-            if self.client is None:
-                async with self.lock:  # sin tarea en curso: conectar no consume tokens
-                    if self.client is None:
-                        self.client = ClaudeSDKClient(options=self.options())
-                        await self.client.connect()
-            info = await self.client.get_server_info() or {}
-            self.commands_cache = normalize_commands(info.get("commands") or [])
+            self.commands_cache = await self.engine.commands()
         return self.commands_cache
 
     async def close(self) -> None:
         self.commands_cache = None  # otra carpeta o sesión puede tener otros comandos
-        if self.client is not None:
-            try:
-                await self.client.disconnect()
-            except Exception:  # noqa: BLE001
-                log.exception("Error cerrando cliente")
-            self.client = None
+        await self.engine.close()
 
     async def stop(self) -> None:
+        self.stopping = True   # hasta que empiece la próxima tarea
         self.clear_queue("⏹️ Quitado: se detuvo la tarea")   # detener = retomar el control
-        if self.client:
-            try:
-                await self.client.interrupt()
-            except Exception:  # noqa: BLE001
-                pass
+        await self.engine.interrupt()
         for pid, p in list(PENDING.items()):
             if p.tab == self.id and not p.future.done():
                 p.future.set_result(CANCELLED)
@@ -434,11 +399,10 @@ class Agent:
         """Cambia el modo de permisos; si hay una sesión abierta, también en caliente."""
         self.mode = mode
         self.persist()
-        if self.client is not None:
-            try:
-                await self.client.set_permission_mode(mode)
-            except Exception:  # noqa: BLE001 — se aplicará al abrir la próxima sesión
-                log.exception("No se pudo cambiar el modo en la sesión actual")
+        try:
+            await self.engine.set_mode(mode)
+        except Exception:  # noqa: BLE001 — se aplicará al abrir la próxima sesión
+            log.exception("No se pudo cambiar el modo en la sesión actual")
         audit("mode", mode=mode, tab=self.name)
         if announce:
             self.emit("info", text=f"Modo: {PERMISSION_MODES[mode]}")
@@ -448,11 +412,10 @@ class Agent:
         """Cambia el modelo de esta sesión; si está conectada, también en caliente."""
         self.model = "" if model == "default" else model
         self.persist()
-        if self.client is not None:
-            try:
-                await self.client.set_model(self.model or MODEL)
-            except Exception:  # noqa: BLE001 — se aplicará al abrir la próxima sesión
-                log.exception("No se pudo cambiar el modelo en la sesión actual")
+        try:
+            await self.engine.set_model(self.model)
+        except Exception:  # noqa: BLE001 — se aplicará al abrir la próxima sesión
+            log.exception("No se pudo cambiar el modelo en la sesión actual")
         audit("model", model=model, tab=self.name)
         self.emit("info", text=f"🧠 Modelo: {model_label(model)}")
         emit_status()
@@ -494,6 +457,7 @@ class Agent:
         self.emit("user", text=prompt, **({"images": thumbs} if images else {}),
                   **({"files": files_meta(files)} if files else {}), **({"qid": qid} if qid else {}))
         self.finishing = False
+        self.stopping = False
         # el contenido de los archivos va solo a Claude (no queda en el historial ni en la auditoría)
         self.task = asyncio.create_task(self.run(with_files(prompt, files), images))
 
@@ -546,51 +510,7 @@ class Agent:
             emit_status()
             self.tracker = await asyncio.to_thread(changes.Tracker, self.cwd) if CHANGES_SUMMARY else None
             try:
-                if self.client is None:
-                    self.client = ClaudeSDKClient(options=self.options())
-                    await self.client.connect()
-                if images:  # capturas adjuntas: un mensaje con bloques de imagen y de texto
-                    async def message():
-                        yield {"type": "user", "parent_tool_use_id": None,
-                               "message": {"role": "user", "content": content_blocks(prompt, images)}}
-                    await self.client.query(message())
-                    images.clear()  # no retener las imágenes en memoria más de lo necesario
-                else:
-                    await self.client.query(prompt)
-                async for msg in self.client.receive_response():
-                    if StreamEvent is not None and isinstance(msg, StreamEvent):
-                        if not msg.parent_tool_use_id:  # solo el agente principal, no subagentes
-                            self.on_stream_event(msg.event)
-                        continue
-                    if isinstance(msg, AssistantMessage):
-                        for block in msg.content:
-                            if isinstance(block, TextBlock) and block.text.strip():
-                                st = None if msg.parent_tool_use_id else self.take_stream(msg.message_id)
-                                # el texto definitivo reemplaza a la burbuja parcial
-                                self.emit("assistant", text=block.text, **({"replaces": st["sid"]} if st else {}))
-                                if not msg.parent_tool_use_id:
-                                    self.final_texts.add(block.text.strip())
-                            elif isinstance(block, ToolUseBlock):
-                                self.emit("tool", text=tool_trace(block.name, block.input or {}))
-                                audit("tool", tool=block.name, target=tool_trace(block.name, block.input or {}))
-                    elif isinstance(msg, ResultMessage):
-                        if getattr(msg, "session_id", None):
-                            self.session_id = msg.session_id
-                            self.persist()
-                        u = getattr(msg, "usage", None) or {}
-                        models = list(getattr(msg, "model_usage", None) or {})
-                        before = budget.info()
-                        rec = usage.record(tab=self.name, tab_id=self.id, cost=getattr(msg, "total_cost_usd", None),
-                                           usage=u, duration=self.elapsed(), turns=getattr(msg, "num_turns", None),
-                                           model=models[0] if models else (getattr(self, "model", "") or MODEL or "default"),
-                                           ok=not msg.is_error)
-                        self.emit("done", ok=not msg.is_error, cost=getattr(msg, "total_cost_usd", None),
-                                  tokens=rec["in"] + rec["out"],
-                                  duration=self.elapsed())  # para avisar al terminar tareas largas
-                        notice = budget.crossed(before, budget.info())
-                        if notice:
-                            HUB.emit("info", text=notice)   # en todas las pestañas
-                            emit_status()
+                await self.engine.run(prompt, images)
             except asyncio.CancelledError:
                 self.emit("info", text="⏹️ Interrumpido.")
                 raise

@@ -12,7 +12,7 @@ def _json(proc):
 
 IPS = ["192.168.1.20", "10.0.0.5", "172.20.1.1", "127.0.0.1", "8.8.8.8", "181.161.4.9",
        "100.64.0.1", "2001:4860::8888", "::ffff:192.168.1.3"]
-CHECK = f"from claude_remoto import auth as s; import json; print(json.dumps({{ip: s.ip_allowed(ip) for ip in {IPS!r}}}))"
+CHECK = f"from mando import auth as s; import json; print(json.dumps({{ip: s.ip_allowed(ip) for ip in {IPS!r}}}))"
 
 
 def test_solo_red_local_por_defecto(tmp_path):
@@ -29,7 +29,7 @@ def test_ips_publicas_rechazadas_aunque_se_configure_publico(tmp_path):
 
 def test_limite_de_login_por_ip_y_global(tmp_path):
     code = """
-from claude_remoto import auth as s
+from mando import auth as s
 import json
 out = {}
 for i in range(10): s.record_failure('203.0.113.9')
@@ -49,7 +49,7 @@ print(json.dumps(out))
 
 def test_historial_recorta_y_pide_snapshot(tmp_path):
     code = """
-from claude_remoto import hub as s
+from mando import hub as s
 import json
 s.HISTORY_MAX = 5
 h = s.Hub()
@@ -68,13 +68,13 @@ print(json.dumps({
 
 
 def test_opcion_de_tiempo_real_hacia_el_sdk(tmp_path):
-    code = "from claude_remoto import agent as s; import json; print(json.dumps(s.Agent({'id': 't'}).options().include_partial_messages))"
+    code = "from mando import agent as s; import json; print(json.dumps(s.Agent({'id': 't'}).options().include_partial_messages))"
     assert _json(run_python(tmp_path, code)) is True                      # activado por defecto
     assert _json(run_python(tmp_path, code, STREAM_TEXT="0")) is False    # se puede desactivar
 
 
 DIFF_CODE = """
-from claude_remoto import diff as s
+from mando import diff as s
 import json, pathlib
 d = pathlib.Path({tmp!r})
 f = d / "a.py"
@@ -116,15 +116,15 @@ def test_diff_de_ediciones(tmp_path):
 
 
 def test_modo_inicial_desde_la_configuracion(tmp_path):
-    code = "from claude_remoto import agent as s; import json; print(json.dumps(s.Agent({'id': 't'}).options().permission_mode))"
+    code = "from mando import agent as s; import json; print(json.dumps(s.Agent({'id': 't'}).options().permission_mode))"
     assert _json(run_python(tmp_path, code)) == "default"
     assert _json(run_python(tmp_path, code, PERMISSION_MODE="plan")) == "plan"
     assert _json(run_python(tmp_path, code, PERMISSION_MODE="bypassPermissions")) == "default"  # no permitido
 
 
 RULES_CODE = """
-from claude_remoto import rules as s
-from claude_remoto.agent import Agent
+from mando import rules as s
+from mando.agent import Agent
 import json
 rules = [
   {"id": "1", "action": "deny", "kind": "bash", "pattern": "*rm -rf*"},
@@ -179,7 +179,7 @@ def test_motor_de_reglas(tmp_path):
     assert "*rm -rf*" in r["defaults"] and "*.env" in r["defaults"] and "sudo *" in r["defaults"]
 
 
-MCP_CODE = "from claude_remoto import config, decisions as d; import json; print(json.dumps([config.MCP_SERVERS, d.tool_view('mcp__docs__buscar', {'q': 'x'})[0]]))"
+MCP_CODE = "from mando import config, decisions as d; import json; print(json.dumps([config.MCP_SERVERS, d.tool_view('mcp__docs__buscar', {'q': 'x'})[0]]))"
 
 
 def test_servidores_mcp_configurables(tmp_path):

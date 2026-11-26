@@ -20,11 +20,13 @@ from xml.sax.saxutils import escape
 
 from .config import APP_DIR, GATEWAY_VARS
 
-NAME = "Claude Remoto"
-LABEL = "com.claude-remoto.server"           # macOS
-UNIT = "claude-remoto.service"               # Linux
-TASK = "ClaudeRemoto"                        # Windows
-LOG_FILE = Path("~/.claude-remoto.log").expanduser()
+NAME = "Mando"
+LABEL = "com.mando.server"           # macOS
+UNIT = "mando.service"               # Linux
+TASK = "Mando"                        # Windows
+LOG_FILE = Path("~/.mando.log").expanduser()
+# Nombres de antes del cambio de nombre del proyecto: al instalar o quitar se eliminan también
+LEGACY = {"macos": "com.claude-remoto.server", "linux": "claude-remoto.service", "windows": "ClaudeRemoto"}
 # Variables que la terminal suele tener y el arranque automático no ve
 ENV_HINTS = (*GATEWAY_VARS, "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "CORP_PROXY",
              "CORP_CA_BUNDLE", "ACCESS_TOKEN")
@@ -135,7 +137,7 @@ def target_file() -> Path:
     home = Path.home()
     return {"linux": home / ".config/systemd/user" / UNIT,
             "macos": home / "Library/LaunchAgents" / f"{LABEL}.plist",
-            "windows": home / ".claude-remoto-task.xml"}[system()]
+            "windows": home / ".mando-task.xml"}[system()]
 
 
 # ---------------------------------------------------------------- avisos
@@ -151,8 +153,38 @@ def env_warnings() -> list[str]:
     return [k for k in ENV_HINTS if os.environ.get(k) and k not in in_file]
 
 
+def legacy_file() -> Path:
+    """Archivo que dejó el arranque automático de «Claude Remoto» (antes del cambio de nombre)."""
+    home = Path.home()
+    return {"linux": home / ".config/systemd/user" / LEGACY["linux"],
+            "macos": home / "Library/LaunchAgents" / f"{LEGACY['macos']}.plist",
+            "windows": home / ".claude-remoto-task.xml"}[system()]
+
+
+def remove_legacy() -> bool:
+    """Quita el arranque automático con el nombre anterior, si quedó instalado. Devuelve si había uno."""
+    sysname, f = system(), legacy_file()
+    if not f.exists():
+        return False
+    if sysname == "linux":
+        run(["systemctl", "--user", "disable", "--now", LEGACY["linux"]], check=False)
+        f.unlink(missing_ok=True)
+        run(["systemctl", "--user", "daemon-reload"], check=False)
+    elif sysname == "macos":
+        uid = str(os.getuid()) if hasattr(os, "getuid") else "501"
+        run(["launchctl", "bootout", f"gui/{uid}/{LEGACY['macos']}"], check=False)
+        f.unlink(missing_ok=True)
+    else:
+        run(["schtasks", "/End", "/TN", LEGACY["windows"]], check=False)
+        run(["schtasks", "/Delete", "/TN", LEGACY["windows"], "/F"], check=False)
+        f.unlink(missing_ok=True)
+    print("🧹 Se quitó el arranque automático anterior («Claude Remoto»).")
+    return True
+
+
 # ---------------------------------------------------------------- acciones
 def install() -> int:
+    remove_legacy()   # si venías de «Claude Remoto», no quedan dos servidores compitiendo por el puerto
     sysname, f = system(), target_file()
     f.parent.mkdir(parents=True, exist_ok=True)
     if sysname == "linux":
@@ -186,6 +218,7 @@ def install() -> int:
 
 
 def uninstall() -> int:
+    remove_legacy()
     sysname, f = system(), target_file()
     if sysname == "linux":
         run(["systemctl", "--user", "disable", "--now", UNIT], check=False)
@@ -207,6 +240,9 @@ def status() -> int:
     sysname, f = system(), target_file()
     installed = f.exists()
     print(f"Arranque automático: {'instalado' if installed else 'no instalado'} ({f})")
+    if legacy_file().exists():
+        print("⚠️  Sigue instalado el arranque automático de «Claude Remoto» (nombre anterior). "
+              "Para reemplazarlo: python server.py --instalar-inicio")
     if installed:
         cmd = {"linux": ["systemctl", "--user", "is-active", UNIT],
                "macos": ["launchctl", "print", f"gui/{os.getuid() if hasattr(os, 'getuid') else 501}/{LABEL}"],

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#141413">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Claude Remoto</title>
+<title>Mando</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon.svg">
@@ -153,6 +153,8 @@
   textarea{flex:1;resize:none;max-height:40vh;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
   #send{min-width:56px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:18px}
   #send:disabled{opacity:.4}
+  #stopBtn{min-width:48px;border:1px solid var(--bad);border-radius:12px;background:color-mix(in srgb,var(--bad) 12%,var(--bg));color:var(--bad);font-size:18px;font-weight:700}
+  #stopBtn[hidden]{display:none}
   #attachBtn{min-width:40px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);font-size:18px;padding:0}
   #attachBar{display:flex;gap:8px;overflow-x:auto;padding:8px 12px 2px;background:var(--panel);border-top:1px solid var(--line)}
   #attachBar[hidden]{display:none}
@@ -219,6 +221,7 @@
   #tabs .tab.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent);font-weight:600}
   #tabs .tab .tname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #tabs .tab.add{font-weight:700;padding:6px 10px}
+  #tabs .tab.add.full{opacity:.4;border-style:dashed}
   #tabs .tmark{flex:none;font-size:11px}
   #tabs .tmark.busy{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite}
   #tabs .tmark.wait{color:var(--accent)}
@@ -298,10 +301,9 @@
 <body>
 <header>
   <span id="dot" class="off" title="estado"></span>
-  <h1>Claude Remoto</h1>
+  <h1>Mando</h1>
   <button class="icon" id="findBtn" title="Buscar en esta conversación (Ctrl+F)" aria-label="Buscar">🔍</button>
   <button class="icon" id="ttsBtn" title="Respuestas habladas: apagadas" aria-pressed="false" hidden>🔇</button>
-  <button class="icon" id="stopBtn" title="Detener">⏹</button>
   <button class="icon" id="menuBtn" title="Menú">☰</button>
 </header>
 <nav id="menu">
@@ -355,6 +357,7 @@
   <input type="file" id="fileIn" multiple hidden accept="image/*,text/*,.log,.txt,.md,.json,.csv,.tsv,.yaml,.yml,.xml,.html,.css,.js,.ts,.tsx,.jsx,.py,.java,.kt,.go,.rs,.rb,.php,.cs,.c,.h,.cpp,.sql,.sh,.ps1,.bat,.ini,.cfg,.conf,.toml,.properties,.gradle,.diff,.patch">
   <textarea id="input" rows="1" placeholder="Escribe una tarea…" enterkeyhint="send"></textarea>
   <button id="mic" title="Dictar por voz" aria-label="Dictar por voz" hidden>🎤</button>
+  <button id="stopBtn" title="Detener lo que está haciendo Claude (Esc)" aria-label="Detener" hidden>⏹</button>
   <button id="send" title="Enviar">➤</button>
 </footer>
 <dialog id="dlg"><button class="dlg-x" id="dlgX" aria-label="Cerrar">✕</button><div id="dlgBody"></div>
@@ -415,11 +418,12 @@ async function api(path,body){
     const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CR':'1'},body:JSON.stringify({...(activeTab?{tab:activeTab}:{}),...(body||{})})});
     if(r.status===401){location.reload();return {}}
     const j=await r.json().catch(()=>({}));
+    if(r.status===404&&path==='/api/decide'&&body?.ref){dropCard(body.ref,'⌛ Ya no está disponible');toast('Esa decisión ya no está pendiente');return j}
     if(!r.ok&&j.error)toast(j.error);
     return j;
   }catch(e){toast('Sin conexión con el equipo');return {}}
 }
-function notify(){if(document.hidden){unseen++;document.title=`(${unseen}) Claude Remoto`;navigator.vibrate?.(200)}}
+function notify(){if(document.hidden){unseen++;document.title=`(${unseen}) Mando`;navigator.vibrate?.(200)}}
 
 // ---------- render ----------
 // ---------- indicador "trabajando" ----------
@@ -464,7 +468,7 @@ function showTab(tab,{scroll=true}={}){
   if(typeof findOpen==='function'&&findOpen()&&!allTabsMode())findRun();   // la búsqueda sigue en la pestaña nueva
 }
 function applyTabStatus(){
-  if(Array.isArray(status.tabs))tabsInfo=status.tabs;
+  if(Array.isArray(status.tabs)){tabsInfo=status.tabs;statusAt=Date.now();if(typeof reconcileCards==='function')setTimeout(reconcileCards,0)}
   if(!tabsInfo.length)return;
   for(const k of Object.keys(logs))if(!tabsInfo.some(t=>t.id===k)){logs[k].remove();delete logs[k]}   // sesión cerrada
   if(!tabsInfo.some(t=>t.id===activeTab)){activeTab=tabsInfo[0].id;showTab(activeTab);return}
@@ -498,7 +502,10 @@ function paintTabs(){
     nav.appendChild(b);
   });
   const add=document.createElement('button'); add.className='tab add'; add.textContent='＋'; add.dataset.tabAdd='1';
-  add.title='Nueva sesión en paralelo'; add.disabled=tabsInfo.length>=(status.max_tabs||6); add.onclick=newTabDialog;
+  const max=status.max_tabs||6, full=tabsInfo.length>=max;
+  add.classList.toggle('full',full); add.setAttribute('aria-disabled',String(full));
+  add.title=full?`Máximo ${max} pestañas: cierra una para crear otra`:'Nueva sesión en paralelo';
+  add.onclick=()=>full?toast(`Ya tienes ${max} pestañas, el máximo. Cierra una (tócala y elige «Cerrar sesión») para crear otra. El límite se cambia con MAX_SESSIONS.`):newTabDialog();
   nav.appendChild(add);
   paintWaitBar(pend);
 }
@@ -579,6 +586,7 @@ function paintWorking(){
   $('#wkAct').textContent=waiting?'':(activity[activeTab]||'');
 }
 function updateWorking(){
+  $('#stopBtn').hidden=!status.busy;   // detener: junto al cuadro de texto, solo mientras trabaja
   const w=$('#working');
   if(!status.busy){w.hidden=true;clearInterval(wkTimer);wkTimer=null;return}
   w.hidden=false;
@@ -710,6 +718,24 @@ function thumbsHtml(images){
   return th?`<div class="thumbs">${th}</div>`:'';
 }
 function where(ev){return ev.tab&&ev.tab!==activeTab&&multiTab()?' en '+tabName(ev.tab):''}
+// Una tarjeta que el servidor ya no tiene pendiente (se detuvo la tarea, se reinició…): se cierra
+// para que no quede abierta sonando cada 30 s sin poder responderse.
+const cardSeen={}; var statusAt=0;   // cuándo llegó el último estado
+function dropCard(ref,label){
+  if(!openCards.has(ref)&&decided[ref])return;
+  decided[ref]=label; openCards.delete(ref); closeCard(ref,label); closeNotif?.(ref);
+  if(!openCards.size)clearInterval(reminderTimer);
+  paintTabs(); updateWorking();
+}
+function reconcileCards(){
+  for(const ref of [...openCards]){
+    // Solo con un estado que llegó después de la tarjeta y que la lista ya no incluye: un estado
+    // anterior a la tarjeta todavía no la conoce y la cerraría con la decisión aún esperando
+    const t=tabsInfo.find(x=>x.id===cardTab[ref]);
+    if(!t||!Array.isArray(t.pending_refs)||t.pending_refs.includes(ref))continue;
+    if(statusAt>(cardSeen[ref]||0)&&Date.now()-(cardSeen[ref]||0)>4000)dropCard(ref,'⏹️ Ya no está pendiente');
+  }
+}
 function closeCard(ref,label){
   const c=document.getElementById('d-'+ref); if(!c)return;
   c.classList.add('closed'); c.querySelector('.actions')?.remove();
@@ -885,7 +911,7 @@ function trackWorking(ev){
     case 'tool': activity[t]='› '+ev.text;break;
     case 'stream': activity[t]='✍️ Escribiendo la respuesta…';break;
     case 'assistant': activity[t]='';lastText[t]=ev.text||'';break;
-    case 'perm': case 'question': if(!decided[ev.ref]){openCards.add(ev.ref);cardTab[ev.ref]=t}break;
+    case 'perm': case 'question': if(!decided[ev.ref]){openCards.add(ev.ref);cardTab[ev.ref]=t;cardSeen[ev.ref]=Date.now();setTimeout(reconcileCards,5000)}break;
     case 'decided': openCards.delete(ev.ref);break;
   }
   if(status.busy)paintWorking();
@@ -1375,7 +1401,7 @@ function alertsDialog(){
     unlockAudio();
     const sonó=chime(); navigator.vibrate?.([200,100,200]);
     if(prefs.notify&&notifGranted()&&swReg){
-      swReg.showNotification('Claude Remoto · prueba',{body:'Así se verán los avisos de decisión',tag:'cr-test',icon:'/icon.svg',vibrate:[200,100,200]});
+      swReg.showNotification('Mando · prueba',{body:'Así se verán los avisos de decisión',tag:'cr-test',icon:'/icon.svg',vibrate:[200,100,200]});
     }
     toast(sonó?'🔊 Sonido OK':'🔇 Sonido desactivado o bloqueado');
   };
@@ -1495,7 +1521,7 @@ function resync(){
 setInterval(()=>{if(Date.now()-lastSeen>(mode==='sse'?STALE_MS:45000)){down();resync()}},5000);
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){hiddenAt=Date.now();return}
-  unseen=0;document.title='Claude Remoto';
+  unseen=0;document.title='Mando';
   if(Date.now()-hiddenAt>3000||!connOk)resync();
 });
 window.addEventListener('online',resync);
@@ -1686,14 +1712,14 @@ function backupDialog(){
     const r=await api('/api/cmd',{cmd:'backup_export'}); if(!r.ok)return;
     const data={...r.backup}; if($('#bkDevice').checked){const {updateSeen,budgetSeen,...p}=prefs;data.device_prefs=p}
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
-    a.download=`claude-remoto-respaldo-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove();
+    a.download=`mando-respaldo-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),5000); toast('Respaldo descargado');
   };
   $('#bkPick').onclick=()=>$('#bkFile').click();
   $('#bkFile').onchange=async e=>{
     const f=e.target.files[0]; e.target.value=''; if(!f)return;
     let data; try{data=JSON.parse(await f.text())}catch(_){$('#bkPreview').innerHTML='<p class="note warn">El archivo no es un JSON válido.</p>';return}
-    if(!data||data.app!=='claude-remoto'){$('#bkPreview').innerHTML='<p class="note warn">El archivo no es un respaldo de Claude Remoto.</p>';return}
+    if(!data||!['mando','claude-remoto'].includes(data.app)){$('#bkPreview').innerHTML='<p class="note warn">El archivo no es un respaldo de Mando.</p>';return}
     const count={rules:(data.rules||[]).length,templates:(data.templates||[]).length,jira:data.jira&&data.jira.url?1:0,budget:data.budget&&data.budget.limit?1:0,
                  tabs:(data.tabs||[]).length,device:data.device_prefs?1:0};
     const rows=Object.keys(BK_LABELS).filter(k=>count[k]).map(k=>`<div class="tts-row"><label for="bk_${k}">${BK_LABELS[k]} <small>(${count[k]})</small></label><input type="checkbox" id="bk_${k}" data-bk="${k}" checked></div>`).join('');
@@ -2088,7 +2114,14 @@ function voiceDialog(){
     r.onclick=()=>{prefs.voice=k;if(k==='whisper')prefs.voiceBrowserOk=false;savePrefs();paintMic();voiceDialog()};
     box.appendChild(r)});
 }
-$('#stopBtn').onclick=()=>api('/api/cmd',{cmd:'stop'});
+$('#stopBtn').onclick=()=>{api('/api/cmd',{cmd:'stop'});toast('Deteniendo…')};
+// Esc detiene, como en Claude Code (si el cuadro de texto está vacío y no hay nada abierto encima)
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape'||!status.busy||e.defaultPrevented)return;
+  if(document.querySelector('dialog[open]')||!$('#cmdList').hidden||(typeof findOpen==='function'&&findOpen()))return;
+  if(document.activeElement===input&&input.value.trim())return;
+  e.preventDefault(); $('#stopBtn').click();
+});
 $('#menuBtn').onclick=()=>$('#menu').classList.toggle('open');
 
 document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
@@ -2098,7 +2131,7 @@ document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
   else if(cmd==='status'){const j=await api('/api/cmd',{cmd});if(j.status){const s=j.status;
     showDialog(`<h3>ℹ️ Estado</h3><p>📁 <code>${esc(s.cwd)}</code></p><p>🧵 ${esc(s.session||'sesión nueva')}</p>
       <p>${s.busy?'⏳ Trabajando':'💤 Libre'} · decisiones pendientes: ${s.pending}</p><p>Gateway: <code>${esc(s.gateway)}</code></p>
-      <p>Aprobadas siempre: ${esc(s.always.join(', ')||'—')}</p><p class="note">Claude Remoto ${esc(s.version||'')}</p>`)}}
+      <p>Aprobadas siempre: ${esc(s.always.join(', ')||'—')}</p><p class="note">Mando ${esc(s.version||'')}</p>`)}}
   else if(cmd==='sessions'){const j=await api('/api/cmd',{cmd});const list=j.sessions||[];
     showDialog('<h3>🧵 Sesiones recientes</h3>'+(list.length?'':'<p>No hay sesiones guardadas para esta carpeta.</p>'));
     list.forEach(s=>{const r=document.createElement('button');r.className='row';

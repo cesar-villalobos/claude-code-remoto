@@ -507,7 +507,7 @@ def test_auditoria_registra_quien_que_y_cuando(make_server, tmp_path):
     ans = next(e for e in ev if e["event"] == "answer")
     assert ans["question"] == "¿Qué rama?" and ans["answer"] == "dev"
 
-    f = tmp_path / ".claude-remoto-audit.jsonl"
+    f = tmp_path / ".mando-audit.jsonl"
     assert body["file"] == str(f) and oct(f.stat().st_mode)[-3:] == "600"
     raw = f.read_text()
     assert TOKEN not in raw and "cr_session" not in raw         # nunca el token ni la cookie
@@ -534,7 +534,7 @@ def test_auditoria_descarga_y_rotacion(make_server, tmp_path):
     s.login()
     for i in range(15):
         s.api("/api/cmd", {"cmd": "mode", "arg": "plan" if i % 2 else "default"})
-    assert (tmp_path / ".claude-remoto-audit.jsonl.1").exists()
+    assert (tmp_path / ".mando-audit.jsonl.1").exists()
     status, h, data = s.request("GET", "/api/audit.jsonl")
     assert status == 200 and "attachment" in h["Content-Disposition"]
     assert all(json.loads(l)["event"] for l in data.decode().splitlines())
@@ -546,7 +546,7 @@ def test_historial_sobrevive_al_reinicio(make_server, tmp_path):
     s.api("/api/send", {"text": "revisa ABC-123"})
     perm, _ = s.wait_for(lambda e: e["type"] == "perm")          # queda una decisión pendiente
     time.sleep(1.2)                                                # guardado diferido (0,5 s)
-    f = tmp_path / ".claude-remoto-history.json"
+    f = tmp_path / ".mando-history.json"
     assert f.exists() and oct(f.stat().st_mode)[-3:] == "600"
     s.proc.terminate(); s.proc.wait(5)
 
@@ -580,4 +580,4 @@ def test_historial_desactivado(make_server, tmp_path):
     s.login()
     s.api("/api/cmd", {"cmd": "mode", "arg": "plan"})
     time.sleep(1)
-    assert not (tmp_path / ".claude-remoto-history.json").exists()
+    assert not (tmp_path / ".mando-history.json").exists()

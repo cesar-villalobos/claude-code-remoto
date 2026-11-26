@@ -16,7 +16,7 @@ def py(tmp_path, code, **env):
 def test_proxima_ejecucion(tmp_path):
     out = py(tmp_path, """
 import datetime as dt, json
-from claude_remoto.schedules import next_run, describe
+from mando.schedules import next_run, describe
 t = lambda *a: dt.datetime(*a).timestamp()
 f = lambda ts: dt.datetime.fromtimestamp(ts).strftime("%a %d %H:%M") if ts else None
 now = t(2026, 11, 24, 7, 0)                                  # martes 07:00
@@ -82,7 +82,7 @@ def test_ejecutar_ahora_y_cola(srv):
 def test_ejecucion_perdida(tmp_path):
     out = py(tmp_path, """
 import asyncio, time, json
-from claude_remoto import schedules as sc
+from mando import schedules as sc
 now = time.time()
 sc.items().append({"id": "a", "name": "Perdida", "tab": "t", "text": "x", "kind": "repeat", "enabled": True,
                    "time": time.strftime("%H:%M", time.localtime(now - 600)), "days": [1, 2, 3, 4, 5, 6, 7],

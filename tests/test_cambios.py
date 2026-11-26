@@ -82,7 +82,7 @@ def test_solo_lo_cambiado_en_la_tarea(tmp_path):
     w = project(tmp_path)   # otro.py ya tiene un cambio previo
     code = f"""
 from pathlib import Path
-from claude_remoto.changes import Tracker
+from mando.changes import Tracker
 w = Path({str(w)!r})
 t = Tracker(str(w))
 (w / "otro.py").write_text("cambio mío previo\\nmás de la tarea\\n")

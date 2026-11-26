@@ -45,7 +45,7 @@ DISABLED_REASON = "" if PUSH_ENABLED else (
     else "Desactivados en este PC (PUSH=0)")
 PUSH_DONE_AFTER = float(os.getenv("PUSH_DONE_AFTER", "30") or 30)   # solo tareas de al menos N s
 PUSH_TTL = 900            # segundos que el servicio guarda el aviso si el celular no está conectado
-PUSH_CONTACT = os.getenv("PUSH_CONTACT", "mailto:claude-remoto@localhost")
+PUSH_CONTACT = os.getenv("PUSH_CONTACT", "mailto:mando@localhost")
 LIVE_POLL_SECONDS = 40    # un dispositivo en long-polling sigue «conectado» este tiempo tras su última consulta
 MAX_SUBS = 20
 # Servicios de push de los navegadores. PUSH_HOSTS agrega otros (separados por coma).

@@ -16,6 +16,10 @@ try:
 except ImportError:
     pass
 
+from . import migrate as _migrate  # noqa: E402
+
+_migrate.run()   # datos de «Claude Remoto» → nombres nuevos (después de leer el .env)
+
 
 BIND_HOST = os.getenv("BIND_HOST", "0.0.0.0")
 
@@ -61,7 +65,7 @@ STATIC_FILES = {
 }
 
 
-STATE_FILE = Path(os.getenv("STATE_FILE", "~/.claude-remoto.json")).expanduser()
+STATE_FILE = Path(os.getenv("STATE_FILE", "~/.mando.json")).expanduser()
 
 
 UI_FILE = APP_DIR / "ui.html"
@@ -185,5 +189,5 @@ SESSION_DAYS = int(os.getenv("SESSION_DAYS", "30"))
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO)
 
 
-log = logging.getLogger("claude-remoto")
+log = logging.getLogger("mando")
 

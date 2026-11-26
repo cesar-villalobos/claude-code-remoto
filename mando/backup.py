@@ -24,7 +24,7 @@ MAX_BACKUP = 512 * 1024   # bytes del cuerpo de la petición de importación
 
 def export_data() -> dict[str, Any]:
     return {
-        "app": "claude-remoto", "format": FORMAT, "exported": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "app": "mando", "format": FORMAT, "exported": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "rules": [{k: r.get(k, "") for k in ("action", "kind", "pattern", "note")} for r in shared_rules()],
         "templates": [{k: t[k] for k in ("name", "text", "send")} for t in tpl.templates()],
         "jira": {k: v for k, v in jira.config().items() if k in ("url", "projects")},
@@ -35,10 +35,10 @@ def export_data() -> dict[str, Any]:
 
 def preview(data: Any) -> tuple[dict[str, int] | None, str | None]:
     """Cuántos elementos trae cada sección (para confirmar antes de importar)."""
-    if not isinstance(data, dict) or data.get("app") != "claude-remoto":
-        return None, "El archivo no es un respaldo de Claude Remoto"
+    if not isinstance(data, dict) or data.get("app") not in ("mando", "claude-remoto"):   # también los de antes del cambio de nombre
+        return None, "El archivo no es un respaldo de Mando"
     if not isinstance(data.get("format"), int) or data["format"] > FORMAT:
-        return None, "El respaldo es de una versión más nueva: actualiza Claude Remoto"
+        return None, "El respaldo es de una versión más nueva: actualiza Mando"
     counts = {}
     for s in SECTIONS:
         v = data.get(s)

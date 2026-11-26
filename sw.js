@@ -1,4 +1,4 @@
-// Service worker de Claude Remoto.
+// Service worker de Mando.
 // Necesario para mostrar notificaciones del sistema en Android (Chrome no permite
 // `new Notification()` en móviles) y para responder desde la propia notificación.
 // No guarda nada en caché: la app siempre requiere el servidor local.
@@ -21,11 +21,11 @@ async function focusApp(ref) {
 // Web Push: avisos con la app cerrada. Son genéricos a propósito: pasan por el servicio de push
 // del navegador (en internet), así que solo dicen qué pasó; el detalle se ve al abrir la app.
 const PUSH_TEXT = {
-  decision: ['Claude necesita tu decisión', 'Abre Claude Remoto para revisarla.'],
-  done: ['Claude terminó una tarea', 'Abre Claude Remoto para ver el resultado.'],
-  error: ['Una tarea terminó con error', 'Abre Claude Remoto para ver qué pasó.'],
-  test: ['Claude Remoto · prueba', 'Así llegarán los avisos con la app cerrada.'],
-  summary: ['Resumen del día', 'Abre Claude Remoto para ver lo que hizo Claude hoy.'],
+  decision: ['Claude necesita tu decisión', 'Abre Mando para revisarla.'],
+  done: ['Claude terminó una tarea', 'Abre Mando para ver el resultado.'],
+  error: ['Una tarea terminó con error', 'Abre Mando para ver qué pasó.'],
+  test: ['Mando · prueba', 'Así llegarán los avisos con la app cerrada.'],
+  summary: ['Resumen del día', 'Abre Mando para ver lo que hizo Claude hoy.'],
 };
 self.addEventListener('push', (e) => {
   let m = {};

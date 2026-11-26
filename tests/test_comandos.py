@@ -27,7 +27,7 @@ def test_carpeta_nueva_vuelve_a_consultar(srv, tmp_path):
 
 def test_normalizacion(tmp_path):
     code = """
-from claude_remoto.agent import normalize_commands
+from mando.agent import normalize_commands
 import json
 print(json.dumps(normalize_commands(["/clear", {"name": "/x", "argument_hint": "<a>"}, {"name": "x"}, 3, None,
                                      {"name": "a" * 81}, {"name": "B", "description": "d" * 300}])))

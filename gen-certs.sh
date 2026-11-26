@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Genera una CA local y un certificado HTTPS para Claude Remoto.
+# Genera una CA local y un certificado HTTPS para Mando.
 #
 # Las notificaciones del sistema exigen HTTPS con un certificado en el que el
 # teléfono confíe. Con esta CA propia: la instalas una vez en el teléfono y
@@ -38,7 +38,7 @@ if [ ! -f certs/ca.key ]; then
   echo "→ Creando CA local (certs/ca.crt), válida 10 años"
   openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 \
     -keyout certs/ca.key -out certs/ca.crt \
-    -subj "/CN=Claude Remoto CA local/O=Claude Remoto" \
+    -subj "/CN=Mando CA local/O=Mando" \
     -addext "basicConstraints=critical,CA:TRUE" \
     -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
 else
@@ -47,7 +47,7 @@ fi
 
 echo "→ Creando certificado del servidor para: $SAN"
 openssl req -newkey rsa:2048 -nodes -sha256 \
-  -keyout certs/server.key -out certs/server.csr -subj "/CN=claude-remoto" 2>/dev/null
+  -keyout certs/server.key -out certs/server.csr -subj "/CN=mando" 2>/dev/null
 cat > certs/server.ext <<EOF
 basicConstraints=CA:FALSE
 keyUsage=critical,digitalSignature,keyEncipherment

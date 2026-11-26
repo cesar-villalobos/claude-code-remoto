@@ -15,7 +15,7 @@ from .config import log
 REQUEST: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar("request", default=None)
 
 
-AUDIT_FILE = Path(os.getenv("AUDIT_FILE", "~/.claude-remoto-audit.jsonl")).expanduser()
+AUDIT_FILE = Path(os.getenv("AUDIT_FILE", "~/.mando-audit.jsonl")).expanduser()
 
 
 AUDIT_MAX_BYTES = int(float(os.getenv("AUDIT_MAX_MB", "5")) * 1024 * 1024)

@@ -6,7 +6,7 @@
 certs/
 
 # Estado local (token de acceso, sesión)
-.claude-remoto.json
+.mando.json
 
 # Palabras que no pueden salir en el repo público (scripts/publicar.py)
 .publicar-prohibido

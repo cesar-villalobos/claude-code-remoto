@@ -15,15 +15,16 @@ from typing import Any
 
 from .config import log
 
-USAGE_FILE = Path(os.getenv("USAGE_FILE", "~/.claude-remoto-usage.jsonl")).expanduser()
+USAGE_FILE = Path(os.getenv("USAGE_FILE", "~/.mando-usage.jsonl")).expanduser()
 DAYS_CHART = 14
+VERSION = 2   # 2: «cost» es lo gastado en la tarea (antes se guardaba el total acumulado de la sesión)
 
 
 def record(*, tab: str, tab_id: str, cost: float | None, usage: dict[str, Any] | None, duration: float,
            turns: int | None, model: str, ok: bool, now: float | None = None) -> dict[str, Any]:
     u = usage or {}
     rec = {
-        "ts": round(now if now is not None else time.time(), 3), "tab": tab, "tab_id": tab_id, "model": model,
+        "v": VERSION, "ts": round(now if now is not None else time.time(), 3), "tab": tab, "tab_id": tab_id, "model": model,
         "ok": ok, "cost": round(float(cost or 0), 6), "duration": round(duration, 1), "turns": turns or 0,
         "in": int(u.get("input_tokens") or 0), "out": int(u.get("output_tokens") or 0),
         "cache_read": int(u.get("cache_read_input_tokens") or 0),
@@ -54,6 +55,53 @@ def _records() -> list[dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return out
+
+
+def fix_cumulative() -> int:
+    """Corrige el registro anterior a la versión 2, que guardaba en cada tarea el total acumulado
+    de la sesión y por eso sumaba de más. Por pestaña y en orden: lo gastado es la diferencia con
+    el total anterior, o el total completo si bajó (sesión nueva). Es una estimación: si en una
+    pestaña se empezó una conversación nueva que gastó más que la anterior, queda algo por debajo.
+    Guarda una copia del original en .bak y devuelve cuántas tareas se corrigieron."""
+    try:
+        lines = USAGE_FILE.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return 0
+    recs: list[dict[str, Any] | str] = []
+    for line in lines:
+        try:
+            r = json.loads(line)
+            recs.append(r if isinstance(r, dict) else line)
+        except json.JSONDecodeError:
+            recs.append(line)
+    old = [r for r in recs if isinstance(r, dict) and "ts" in r and r.get("v") is None]
+    if not old:
+        return 0
+    last: dict[str, float] = {}
+    fixed = 0
+    for r in sorted(old, key=lambda x: x["ts"]):
+        key = str(r.get("tab_id") or r.get("tab") or "")
+        total = float(r.get("cost") or 0)
+        prev = last.get(key, 0.0)
+        last[key] = total
+        cost = round(total - prev, 6) if total >= prev else total
+        if cost != total:
+            fixed += 1
+        r["cost"], r["v"] = cost, VERSION
+    try:
+        backup = USAGE_FILE.with_name(USAGE_FILE.name + ".bak")
+        if not backup.exists():
+            backup.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            backup.chmod(0o600)
+        tmp = USAGE_FILE.with_name(USAGE_FILE.name + ".tmp")
+        tmp.write_text("".join((json.dumps(r, ensure_ascii=False) if isinstance(r, dict) else r) + "\n"
+                               for r in recs), encoding="utf-8")
+        tmp.chmod(0o600)
+        tmp.replace(USAGE_FILE)
+    except OSError:
+        log.exception("No se pudo corregir el registro de uso")
+        return 0
+    return fixed
 
 
 _month_cache: dict[str, Any] = {}
