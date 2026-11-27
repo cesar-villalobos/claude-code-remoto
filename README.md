@@ -70,6 +70,7 @@ Claude Code sigue necesitando acceso a internet para hablar con la API de Claude
   - El cambio se aplica en caliente, también con una tarea en curso, y se guarda entre reinicios.
   - «Predeterminado» es el que tengas configurado en Claude Code.
   - La lista se define con `CLAUDE_MODELS`. Con un gateway, pon los nombres exactos que acepte, por ejemplo `default,claude-sonnet-5,claude-opus-5`.
+- **Tema** (☰ → 🌓 Tema): automático (según el sistema), claro u oscuro. Se guarda en cada dispositivo.
 - **Costo y uso** (☰ → 💲 Uso): totales de hoy, 7 y 30 días, un gráfico por día y el desglose por pestaña y por modelo. Cada tarea muestra al terminar su costo y sus tokens.
   - Se guarda en `~/.mando-usage.jsonl`, solo legible por tu usuario y **sin el texto de las tareas**.
   - El costo es la estimación de Claude Code según los precios públicos. Con un gateway corporativo el cobro real puede ser distinto, por eso también se muestran los tokens.

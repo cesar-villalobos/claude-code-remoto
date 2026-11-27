@@ -1354,3 +1354,26 @@ def test_menu_agrupado_y_cursor_de_mano(browser, make_server):
     page.wait_for_selector("dialog[open]")
     assert not page.is_visible("#menu")
     ctx.close()
+
+
+def test_elegir_tema(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s, color_scheme="light")             # el sistema pide claro
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    def bg():
+        return page.evaluate("getComputedStyle(document.body).backgroundColor")
+    assert bg() == "rgb(246, 245, 241)"                               # Automático: sigue al sistema
+    page.click("#menuBtn")
+    page.click("[data-cmd=theme]")
+    page.click("[data-theme-opt=dark]")
+    assert bg() == "rgb(20, 20, 19)" and page.get_attribute("[data-theme-opt=dark]", "aria-pressed") == "true"
+    page.reload()
+    page.wait_for_selector("#input")
+    assert bg() == "rgb(20, 20, 19)"                                  # se recuerda en este dispositivo
+    page.click("#menuBtn")
+    page.click("[data-cmd=theme]")
+    page.click("[data-theme-opt=auto]")
+    assert bg() == "rgb(246, 245, 241)" and page.evaluate("localStorage.getItem('cr_theme')") is None
+    ctx.close()
