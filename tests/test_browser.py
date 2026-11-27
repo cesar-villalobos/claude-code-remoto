@@ -1330,3 +1330,27 @@ def test_aprobacion_sigue_abierta_si_tardo_en_responder(browser, make_server):
     page.click(".card .yes")
     page.wait_for_selector(".card.closed:has-text('Aprobado')", timeout=5000)
     ctx.close()
+
+
+def test_menu_agrupado_y_cursor_de_mano(browser, make_server):
+    s = make_server("basic")
+    ctx = new_context(browser, s, viewport={"width": 1280, "height": 800})
+    page = ctx.new_page()
+    page.goto(f"{s.base}/?token={TOKEN}")
+    page.wait_for_selector("#input")
+    page.click("#menuBtn")
+    assert page.locator("#menu h4").all_text_contents() == ["Conversación", "Actividad", "Automatizar", "Preferencias"]
+    assert page.get_attribute("#menuBtn", "aria-expanded") == "true"
+    cursors = page.evaluate("[...document.querySelectorAll('#menuBtn,#findBtn,#send,#attachBtn,#tabs .tab,#menu button')]"
+                            ".map(e=>getComputedStyle(e).cursor)")
+    assert set(cursors) == {"pointer"}
+    page.keyboard.press("Escape")                                      # se cierra con Esc
+    assert not page.is_visible("#menu")
+    page.click("#menuBtn")
+    page.mouse.click(400, 500)                                         # y al tocar fuera
+    assert not page.is_visible("#menu")
+    page.click("#menuBtn")
+    page.click("[data-cmd=usage]")                                     # una opción lo cierra y abre su diálogo
+    page.wait_for_selector("dialog[open]")
+    assert not page.is_visible("#menu")
+    ctx.close()

@@ -23,10 +23,29 @@
        outline:8px solid transparent}  /* área de toque más grande */
   #dot.idle{background:var(--ok)} #dot.busy{background:var(--accent);animation:pulse 1s infinite} #dot.off{background:var(--bad)}
   @keyframes pulse{50%{opacity:.35}}
+  /* todo lo que se toca muestra la mano; lo deshabilitado, que no se puede */
+  button,[role=button],summary,select,label:has(input[type=checkbox]),label:has(input[type=radio]),input[type=checkbox],input[type=radio],input[type=file]{cursor:pointer}
+  button:disabled,button[aria-disabled=true],.full{cursor:not-allowed}
   .icon{background:none;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:6px 10px;font-size:14px}
-  #menu{display:none;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
-  #menu.open{display:flex}
-  #menu button{flex:1 1 30%}
+  /* se despliega sobre el contenido, bajo la cabecera (en el celular a todo el ancho) */
+  #menu{display:none;position:absolute;left:0;right:0;top:100%;z-index:5;max-height:calc(100vh - 70px);overflow:auto;
+        padding:6px 12px 10px;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 10px 24px rgba(0,0,0,.25)}
+  #menu.open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px}
+  #menu section{display:flex;flex-direction:column;gap:2px;min-width:0}
+  #menu h4{margin:8px 0 2px;padding:0 10px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  #menu button{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:6px 10px;border:0;border-radius:8px;
+               background:none;color:var(--text);font:inherit;font-size:14px;text-align:left}
+  #menu button:hover,#menu button:focus-visible{background:color-mix(in srgb,var(--text) 8%,transparent)}
+  #menu .mi{width:22px;flex:none;text-align:center}
+  #menu .menu-foot{grid-column:1/-1;border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
+  #menu .menu-foot button{color:var(--bad)}
+  @media (min-width:760px){
+    /* escritorio: panel que se despliega bajo el botón, no una franja de botones sueltos */
+    #menu.open{left:auto;right:12px;top:calc(100% + 6px);width:600px;max-height:calc(100vh - 80px);
+               grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line);border-radius:12px;
+               box-shadow:0 12px 32px rgba(0,0,0,.28);padding:8px 10px 10px;z-index:5}
+    #menu button{min-height:34px}
+  }
   #findBar{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--line);background:var(--card,#f6f6f6)}
   #findBar[hidden]{display:none}
   #findInput{flex:1;min-width:0;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
@@ -305,26 +324,37 @@
   <h1>Mando</h1>
   <button class="icon" id="findBtn" title="Buscar en esta conversación (Ctrl+F)" aria-label="Buscar">🔍</button>
   <button class="icon" id="ttsBtn" title="Respuestas habladas: apagadas" aria-pressed="false" hidden>🔇</button>
-  <button class="icon" id="menuBtn" title="Menú">☰</button>
-</header>
-<nav id="menu">
-  <button class="icon" data-cmd="new">🆕 Conversación nueva</button>
-  <button class="icon" data-cmd="sessions">🧵 Retomar conversación</button>
-  <button class="icon" data-cmd="cd">📁 Carpeta</button>
-  <button class="icon" data-cmd="export">📝 Exportar a Markdown</button>
-  <button class="icon" data-cmd="status">ℹ️ Estado</button>
-  <button class="icon" data-cmd="usage">💲 Uso</button>
-  <button class="icon" data-cmd="daily">📊 Resumen de hoy</button>
-  <button class="icon" data-cmd="alerts">🔔 Alertas</button>
-  <button class="icon" data-cmd="voice">🎤 Voz</button>
-  <button class="icon" data-cmd="templates">⚡ Plantillas</button>
-  <button class="icon" data-cmd="schedules">⏰ Programadas</button>
-  <button class="icon" data-cmd="jira">🎫 Jira</button>
-  <button class="icon" data-cmd="rules">⚖️ Reglas</button>
-  <button class="icon" data-cmd="security">🔐 Seguridad</button>
-  <button class="icon" data-cmd="backup">💾 Respaldo</button>
-  <button class="icon" data-cmd="logout">🚪 Salir</button>
+  <button class="icon" id="menuBtn" title="Menú" aria-haspopup="true" aria-expanded="false" aria-controls="menu">☰</button>
+<nav id="menu" aria-label="Menú">
+  <section><h4>Conversación</h4>
+    <button data-cmd="new"><span class="mi" aria-hidden="true">🆕</span>Conversación nueva</button>
+    <button data-cmd="sessions"><span class="mi" aria-hidden="true">🧵</span>Retomar conversación</button>
+    <button data-cmd="cd"><span class="mi" aria-hidden="true">📁</span>Carpeta</button>
+    <button data-cmd="export"><span class="mi" aria-hidden="true">📝</span>Exportar a Markdown</button>
+  </section>
+  <section><h4>Actividad</h4>
+    <button data-cmd="status"><span class="mi" aria-hidden="true">ℹ️</span>Estado</button>
+    <button data-cmd="usage"><span class="mi" aria-hidden="true">💲</span>Uso</button>
+    <button data-cmd="daily"><span class="mi" aria-hidden="true">📊</span>Resumen de hoy</button>
+  </section>
+  <section><h4>Automatizar</h4>
+    <button data-cmd="templates"><span class="mi" aria-hidden="true">⚡</span>Plantillas</button>
+    <button data-cmd="schedules"><span class="mi" aria-hidden="true">⏰</span>Programadas</button>
+    <button data-cmd="rules"><span class="mi" aria-hidden="true">⚖️</span>Reglas</button>
+    <button data-cmd="jira"><span class="mi" aria-hidden="true">🎫</span>Jira</button>
+  </section>
+  <section><h4>Preferencias</h4>
+    <button data-cmd="alerts"><span class="mi" aria-hidden="true">🔔</span>Alertas</button>
+    <button data-cmd="voice"><span class="mi" aria-hidden="true">🎤</span>Voz</button>
+    <button data-cmd="security"><span class="mi" aria-hidden="true">🔐</span>Seguridad</button>
+    <button data-cmd="backup"><span class="mi" aria-hidden="true">💾</span>Respaldo</button>
+  </section>
+  <section class="menu-foot">
+    <button data-cmd="logout"><span class="mi" aria-hidden="true">🚪</span>Salir</button>
+  </section>
 </nav>
+</header>
+
 <nav id="tabs" aria-label="Sesiones en paralelo"></nav>
 <button id="waitBar" class="fading" hidden aria-live="polite"><span id="waitText"></span><b>Ir →</b></button>
 <div id="findBar" hidden role="search">
@@ -2134,10 +2164,14 @@ document.addEventListener('keydown',e=>{
   if(document.activeElement===input&&input.value.trim())return;
   e.preventDefault(); $('#stopBtn').click();
 });
-$('#menuBtn').onclick=()=>$('#menu').classList.toggle('open');
+function setMenu(open){$('#menu').classList.toggle('open',open);$('#menuBtn').setAttribute('aria-expanded',String(open))}
+$('#menuBtn').onclick=e=>{e.stopPropagation();setMenu(!$('#menu').classList.contains('open'))};
+// se cierra al tocar fuera o con Esc
+document.addEventListener('click',e=>{if($('#menu').classList.contains('open')&&!e.target.closest('#menu'))setMenu(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#menu').classList.contains('open')){e.preventDefault();setMenu(false);$('#menuBtn').focus()}},true);
 
 document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
-  $('#menu').classList.remove('open');
+  setMenu(false);
   const cmd=b.dataset.cmd;
   if(cmd==='new'){if(confirm('¿Empezar una sesión nueva?'))api('/api/cmd',{cmd})}
   else if(cmd==='status'){const j=await api('/api/cmd',{cmd});if(j.status){const s=j.status;
