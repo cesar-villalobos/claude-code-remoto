@@ -1,11 +1,13 @@
 # Mando (red local)
 
-Mando es un control remoto para tu agente de programación: controla Claude Code y Codex (experimental) desde el navegador del celular, **solo dentro de tu red local**. El control no pasa por Telegram, Slack ni ningún otro servicio externo.
+Mando es un control remoto para tu agente de programación: controla Claude Code desde el navegador del celular, **solo dentro de tu red local**. El control no pasa por Telegram, Slack ni ningún otro servicio externo.
 
-> **Proyecto independiente y no oficial**, sin afiliación con Anthropic ni respaldo de su parte. «Claude» y «Claude Code» son marcas de Anthropic. Para la función oficial de control remoto, consulta la documentación de Claude Code.  Lo mismo para Codex que es marca de Open AI.
+> **Antes se llamaba «Claude Remoto».** Si vienes de esa versión, al actualizar tus datos (token, dispositivos, 2FA, reglas, historial, auditoría y uso) se migran solos a los archivos nuevos `~/.mando*`. Si usabas el arranque automático, vuelve a ejecutar `python server.py --instalar-inicio`: reemplaza el anterior. Si tu `.env` fija `STATE_FILE`, `HISTORY_FILE`, `AUDIT_FILE` o `USAGE_FILE` con el nombre antiguo (venían así en el ejemplo), también se migran; el servidor te avisa para que cambies o borres esas líneas.
+
+> **Proyecto independiente y no oficial**, sin afiliación con Anthropic ni respaldo de su parte. «Claude» y «Claude Code» son marcas de Anthropic. Para la función oficial de control remoto, consulta la documentación de Claude Code.
 
 ## ¿Para quién es?
-Para quienes usan **Claude Code o Codex con la API**, y especialmente **a través de un gateway de IA corporativo**: el caso en que la empresa entrega acceso a Claude y/o Codex mediante su propio proxy o gateway (`ANTHROPIC_BASE_URL`), con su autenticación y sus controles.
+Para quienes usan **Claude Code con la API**, y especialmente **a través de un gateway de IA corporativo**: el caso en que la empresa entrega acceso a Claude mediante su propio proxy o gateway (`ANTHROPIC_BASE_URL`), con su autenticación y sus controles.
 
 En esos casos no está disponible el [Remote Control oficial](https://code.claude.com/docs/en/remote-control) de Claude Code. Según su documentación, requiere iniciar sesión con una suscripción de claude.ai (Pro, Max, Team o Enterprise): no admite claves de API, y tampoco funciona cuando `ANTHROPIC_BASE_URL` apunta a un gateway o proxy, ni con Amazon Bedrock, Google Cloud o Microsoft Foundry.
 
