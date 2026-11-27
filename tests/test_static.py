@@ -14,11 +14,13 @@ node = shutil.which("node")
 
 @pytest.mark.skipif(not node, reason="requiere node")
 def test_javascript_de_la_interfaz(tmp_path):
-    script = re.search(r"<script>([\s\S]*)</script>", (ROOT / "ui.html").read_text()).group(1)
-    f = tmp_path / "ui.js"
-    f.write_text(script)
-    r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
-    assert r.returncode == 0, r.stderr
+    scripts = re.findall(r"<script>([\s\S]*?)</script>", (ROOT / "ui.html").read_text())
+    assert len(scripts) >= 2                     # el del tema (en <head>) y el principal
+    for i, script in enumerate(scripts):
+        f = tmp_path / f"ui{i}.js"
+        f.write_text(script)
+        r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True, check=False)
+        assert r.returncode == 0, r.stderr
 
 
 @pytest.mark.skipif(not node, reason="requiere node")

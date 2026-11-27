@@ -4,15 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#141413">
+<script>/* el tema elegido se aplica antes de pintar, sin parpadeo */try{const t=localStorage.getItem('cr_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(_){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Mando</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon.svg">
 <style>
+  /* Tema: oscuro por defecto; claro si el sistema lo pide (Automático) o si se elige en ☰ → Tema */
   :root{--bg:#141413;--panel:#1f1e1d;--line:#2e2d2b;--text:#ecebe6;--muted:#9b9a94;--accent:#d97757;
-        --ok:#3fa66b;--bad:#d9534f;--user:#2b3a55;--r:14px}
-  @media (prefers-color-scheme:light){:root{--bg:#f6f5f1;--panel:#fff;--line:#e3e1da;--text:#1f1e1d;--muted:#6b6a65;--user:#dbe6f7}}
+        --ok:#3fa66b;--bad:#d9534f;--user:#2b3a55;--add:#3fb950;--del:#f85149;--r:14px;color-scheme:dark}
+  :root[data-theme=light]{--bg:#f6f5f1;--panel:#fff;--line:#e3e1da;--text:#1f1e1d;--muted:#6b6a65;--user:#dbe6f7;
+        --add:#1a7f37;--del:#cf222e;color-scheme:light}
+  @media (prefers-color-scheme:light){:root:not([data-theme=dark]){--bg:#f6f5f1;--panel:#fff;--line:#e3e1da;--text:#1f1e1d;
+        --muted:#6b6a65;--user:#dbe6f7;--add:#1a7f37;--del:#cf222e;color-scheme:light}}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
   body{display:flex;flex-direction:column}
@@ -46,7 +51,7 @@
                box-shadow:0 12px 32px rgba(0,0,0,.28);padding:8px 10px 10px;z-index:5}
     #menu button{min-height:34px}
   }
-  #findBar{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--line);background:var(--card,#f6f6f6)}
+  #findBar{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--line);background:var(--panel)}
   #findBar[hidden]{display:none}
   #findInput{flex:1;min-width:0;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
   #findCount{font-size:12px;opacity:.75;min-width:3.5em;text-align:center;font-variant-numeric:tabular-nums}
@@ -203,7 +208,7 @@
   .sched .sch-act{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
   .sched .sch-act button{min-width:36px;min-height:36px}
   .sch-days{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}
-  .sch-days label{display:inline-flex;align-items:center;justify-content:center;min-width:38px;min-height:34px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .sch-days label{display:inline-flex;align-items:center;justify-content:center;min-width:38px;min-height:34px;padding:0 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
   .sch-days input{display:none}
   .sch-days input:checked+span{font-weight:700;color:var(--accent)}
   .sch-days label:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
@@ -224,7 +229,7 @@
   .budget-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
   .budget-row input{width:7em;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
   .changes h3{margin:0 0 6px;font-size:15px}
-  .changes .ch-sum .plus,.changes summary .plus{color:#1a7f37}.changes .ch-sum .minus,.changes summary .minus{color:#cf222e}
+  .changes .ch-sum .plus,.changes summary .plus{color:var(--add)}.changes .ch-sum .minus,.changes summary .minus{color:var(--del)}
   .changes details{border-top:1px solid var(--line)}
   .changes summary{display:flex;gap:8px;align-items:center;padding:8px 2px;cursor:pointer;list-style:none;min-height:36px}
   .changes summary::-webkit-details-marker{display:none}
@@ -313,9 +318,32 @@
   .dlg-close{position:sticky;bottom:0;z-index:2;margin:0 -12px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}
   .dlg-close button{display:block;width:100%;margin:0}
   dialog::backdrop{background:rgba(0,0,0,.5)}
+  dialog .row.on{border-color:var(--accent)}
+  dialog .row.theme-opt{display:flex;align-items:center;gap:8px} dialog .row.theme-opt small{flex:1;display:inline;margin:0;color:var(--muted)} dialog .theme-opt b{color:var(--accent)}
   dialog .row{display:block;width:100%;text-align:left;margin:6px 0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:14px}
   dialog .row small{display:block;color:var(--muted)}
   #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#444;color:#fff;padding:8px 14px;border-radius:10px;display:none;z-index:9}
+  /* ---- formularios de los diálogos: mismos campos, etiquetas y botón principal en todos ---- */
+  dialog :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea){
+    min-height:42px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background-color:var(--bg);color:var(--text);
+    font:inherit;font-size:15px;box-sizing:border-box}
+  dialog select{appearance:none;-webkit-appearance:none;padding-right:38px;background-repeat:no-repeat;background-position:right 13px center;
+    background-size:12px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239b9a94' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+  dialog :is(input,select,textarea):hover{border-color:color-mix(in srgb,var(--text) 25%,var(--line))}
+  dialog :is(input,select,textarea,button):focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  dialog .tpl-form{gap:6px}
+  dialog .tpl-form :is(input,select,textarea){width:100%}
+  dialog .tpl-form>label{font-size:13px;font-weight:600;color:var(--muted);margin-top:6px}
+  dialog .sec-actions{margin-top:14px}
+  dialog .sec-actions button,dialog button.primary{min-height:40px;padding:8px 16px;border-radius:10px;font-size:15px}
+  dialog .sec-actions button[type=submit],dialog button.primary{flex:1 1 140px;background:var(--accent);border:1px solid var(--accent);color:#fff;font-weight:600}
+  dialog .sec-actions button[type=submit]:hover,dialog button.primary:hover{filter:brightness(1.08)}
+  dialog .sec-actions button:disabled{opacity:.5}
+  /* opciones de modelo, modo y tema: la elegida se ve marcada, no solo con un borde */
+  .mode-opt,dialog .row.theme-opt{position:relative;padding-right:40px}
+  .mode-opt:hover,dialog .row.theme-opt:hover{border-color:color-mix(in srgb,var(--text) 25%,var(--line))}
+  .mode-opt.on,dialog .row.theme-opt.on{outline:none;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--bg))}
+  .mode-opt.on::after{content:'✓';position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--accent);font-weight:700;font-size:17px}
 </style>
 </head>
 <body>
@@ -344,6 +372,7 @@
     <button data-cmd="jira"><span class="mi" aria-hidden="true">🎫</span>Jira</button>
   </section>
   <section><h4>Preferencias</h4>
+    <button data-cmd="theme"><span class="mi" aria-hidden="true">🌓</span>Tema</button>
     <button data-cmd="alerts"><span class="mi" aria-hidden="true">🔔</span>Alertas</button>
     <button data-cmd="voice"><span class="mi" aria-hidden="true">🎤</span>Voz</button>
     <button data-cmd="security"><span class="mi" aria-hidden="true">🔐</span>Seguridad</button>
@@ -582,7 +611,7 @@ function newTabDialog(){
       ${(status.engines||[]).length>1?`<label for="tabEngine">Agente</label><select id="tabEngine">${status.engines.map(e=>`<option value="${esc(e.name)}">${esc(e.label)}${e.name==='codex'?' (experimental)':''}</option>`).join('')}</select>`:''}
       <label for="tabCwd">Carpeta</label><input id="tabCwd" value="${esc(status.cwd||'')}">
       <p class="note warn" id="tabErr"></p>
-      <div class="sec-actions"><button type="submit">Crear</button></div>
+      <div class="sec-actions"><button type="submit">Crear pestaña</button></div>
     </form>`);
   $('#tabName').focus();
   $('#tabForm').onsubmit=async e=>{e.preventDefault();
@@ -661,7 +690,7 @@ function budgetSection(b){
       :`<p class="note">Sin límite. Este mes llevas ${usd(b.spent)}.</p>`}
     <div class="budget-row"><label for="bgLimit">US$</label><input id="bgLimit" type="number" min="0" step="1" inputmode="decimal" value="${b.limit||''}" placeholder="sin límite">
       <label for="bgWarn">avisar al</label><input id="bgWarn" type="number" min="50" max="100" step="5" value="${b.warn}"><span>%</span>
-      <button id="bgSave">Guardar</button>${b.blocked?'<button id="bgOverride">Continuar este mes</button>':''}</div>
+      <button id="bgSave" class="primary">Guardar</button>${b.blocked?'<button id="bgOverride">Continuar este mes</button>':''}</div>
     <p class="note">Al llegar al límite no se corta la tarea en curso: solo dejan de iniciarse tareas nuevas, también las de la cola. Usa el costo estimado de Claude Code; con un gateway el cobro real puede ser distinto. 0 o vacío = sin límite.</p>`;
 }
 function paintUpdate(){
@@ -1874,7 +1903,7 @@ async function dailyDialog(){
     <div class="daily-sum">${empty?'<p class="note">Hoy todavía no hay actividad.</p>':dailyHtml(s)}</div>
     <h4>Enviarlo automáticamente</h4>
     <div class="tts-row"><label for="dsOn">Resumen diario en el chat (y aviso con la app cerrada, si lo activaste)</label><input type="checkbox" id="dsOn"${c.enabled?' checked':''}></div>
-    <div class="budget-row"><label for="dsAt">a las</label><input id="dsAt" type="time" value="${esc(c.at)}"><button id="dsSave">Guardar</button></div>
+    <div class="budget-row"><label for="dsAt">a las</label><input id="dsAt" type="time" value="${esc(c.at)}"><button id="dsSave" class="primary">Guardar</button></div>
     <p class="note">Solo los días con actividad, con la hora de este PC. No incluye textos de las tareas ni de las respuestas.</p>`);
   $('#dsSave').onclick=async()=>{
     const r=await api('/api/cmd',{cmd:'daily_set',enabled:$('#dsOn').checked,at:$('#dsAt').value});
@@ -2164,6 +2193,23 @@ document.addEventListener('keydown',e=>{
   if(document.activeElement===input&&input.value.trim())return;
   e.preventDefault(); $('#stopBtn').click();
 });
+// Tema por dispositivo: auto (sigue al sistema), claro u oscuro
+const THEMES={auto:'🌓 Automático',light:'☀️ Claro',dark:'🌙 Oscuro'};
+function themePref(){try{const t=localStorage.getItem('cr_theme');return t==='light'||t==='dark'?t:'auto'}catch(_){return 'auto'}}
+function applyTheme(t){
+  if(t==='light'||t==='dark')document.documentElement.dataset.theme=t; else delete document.documentElement.dataset.theme;
+  try{t==='auto'?localStorage.removeItem('cr_theme'):localStorage.setItem('cr_theme',t)}catch(_){}
+  const bg=getComputedStyle(document.documentElement).getPropertyValue('--panel').trim();
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content',bg||'#141413');
+}
+function themeDialog(){
+  const cur=themePref();
+  showDialog('<h3>🌓 Tema</h3><p class="note">Se guarda en este dispositivo.</p>'+Object.entries(THEMES).map(([k,l])=>
+    `<button class="row theme-opt mode-opt${k===cur?' on':''}" data-theme-opt="${k}" aria-pressed="${k===cur}"><span>${l}</span><small>${k==='auto'?'según el sistema':''}</small></button>`).join(''));
+  document.querySelectorAll('[data-theme-opt]').forEach(b=>b.onclick=()=>{applyTheme(b.dataset.themeOpt);themeDialog()});
+}
+matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>applyTheme(themePref()));
+applyTheme(themePref());
 function setMenu(open){$('#menu').classList.toggle('open',open);$('#menuBtn').setAttribute('aria-expanded',String(open))}
 $('#menuBtn').onclick=e=>{e.stopPropagation();setMenu(!$('#menu').classList.contains('open'))};
 // se cierra al tocar fuera o con Esc
@@ -2173,6 +2219,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#menu').classLis
 document.querySelectorAll('#menu [data-cmd]').forEach(b=>b.onclick=async()=>{
   setMenu(false);
   const cmd=b.dataset.cmd;
+  if(cmd==='theme'){themeDialog();return}
   if(cmd==='new'){if(confirm('¿Empezar una sesión nueva?'))api('/api/cmd',{cmd})}
   else if(cmd==='status'){const j=await api('/api/cmd',{cmd});if(j.status){const s=j.status;
     showDialog(`<h3>ℹ️ Estado</h3><p>📁 <code>${esc(s.cwd)}</code></p><p>🧵 ${esc(s.session||'sesión nueva')}</p>
